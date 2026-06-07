@@ -1,0 +1,168 @@
+@import 'tailwindcss';
+
+/* ----------------------------------------------------------------------------
+   Observatory — a calm, warm-dark data instrument.
+   Near-black warm charcoal canvas · clay/coral accent · editorial serif +
+   monospaced numerals. Defined as design tokens so every surface stays cohesive.
+---------------------------------------------------------------------------- */
+
+@theme {
+	/* Canvas + surfaces (warm, near-black) */
+	--color-ink-950: #110e0c;
+	--color-ink-900: #16120f;
+	--color-ink-850: #1b1613;
+	--color-ink-800: #221b17;
+	--color-ink-700: #2c241f;
+	--color-ink-600: #3a302a;
+
+	/* Text */
+	--color-cream: #f4ede3;
+	--color-cream-dim: #c8bcae;
+	--color-muted: #9a8d7e;
+	--color-faint: #6f6357;
+
+	/* Clay accent (Claude signature) + supporting categorical hues */
+	--color-clay: #d97757;
+	--color-clay-bright: #e88a66;
+	--color-clay-deep: #b85c3e;
+	--color-amber: #e0a458;
+	--color-sage: #8fa67e;
+	--color-dust: #7c93a6;
+	--color-mauve: #a98499;
+
+	/* Type */
+	--font-display: 'Fraunces', Georgia, serif;
+	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+	--font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
+
+	/* Easing */
+	--ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+	background-color: var(--color-ink-950);
+	color-scheme: dark;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	font-family: var(--font-sans);
+	color: var(--color-cream);
+	background-color: var(--color-ink-950);
+	/* Atmosphere: a warm clay glow up top + a deep vignette, layered. */
+	background-image:
+		radial-gradient(900px 520px at 78% -8%, rgba(217, 119, 87, 0.16), transparent 60%),
+		radial-gradient(700px 600px at 8% 0%, rgba(124, 147, 166, 0.06), transparent 55%),
+		radial-gradient(1200px 800px at 50% 120%, rgba(0, 0, 0, 0.5), transparent 60%);
+	background-attachment: fixed;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/* Fine film grain so flat surfaces never feel like dead pixels. */
+body::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	opacity: 0.035;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ----------------------------------------------------------------------------
+   Reusable primitives
+---------------------------------------------------------------------------- */
+
+.panel {
+	position: relative;
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 40%),
+		var(--color-ink-900);
+	border: 1px solid rgba(244, 237, 227, 0.07);
+	border-radius: 18px;
+	box-shadow:
+		0 1px 0 rgba(255, 255, 255, 0.04) inset,
+		0 24px 48px -24px rgba(0, 0, 0, 0.7);
+	transition:
+		transform 0.45s var(--ease-out-soft),
+		border-color 0.45s var(--ease-out-soft),
+		box-shadow 0.45s var(--ease-out-soft);
+}
+
+.panel-hover:hover {
+	transform: translateY(-3px);
+	border-color: rgba(217, 119, 87, 0.32);
+	box-shadow:
+		0 1px 0 rgba(255, 255, 255, 0.05) inset,
+		0 32px 64px -28px rgba(0, 0, 0, 0.8);
+}
+
+.num {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+
+.eyebrow {
+	font-family: var(--font-mono);
+	font-size: 0.66rem;
+	letter-spacing: 0.28em;
+	text-transform: uppercase;
+	color: var(--color-faint);
+}
+
+.serif {
+	font-family: var(--font-display);
+	font-optical-sizing: auto;
+}
+
+/* Staggered entrance — one orchestrated page-load reveal. */
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(16px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.rise {
+	opacity: 0;
+	animation: rise 0.7s var(--ease-out-soft) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rise {
+		animation: none;
+		opacity: 1;
+	}
+	.panel {
+		transition: none;
+	}
+}
+
+/* Slim, on-theme scrollbars */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: var(--color-ink-700);
+	border-radius: 999px;
+	border: 2px solid var(--color-ink-950);
+}
+::-webkit-scrollbar-thumb:hover {
+	background: var(--color-ink-600);
+}
+
+::selection {
+	background: rgba(217, 119, 87, 0.3);
+	color: var(--color-cream);
+}
