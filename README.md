@@ -6,6 +6,8 @@ Everything runs on your machine. **No data ever leaves your computer.**
 
 ![Observatory](docs/preview.png)
 
+<sub>Screenshot uses synthetic demo data (`scripts/generate_sample_logs.py`) — not real usage.</sub>
+
 **Tech Stack**
 - Backend: FastAPI (Python)
 - Frontend: SvelteKit + TypeScript + Tailwind CSS v4

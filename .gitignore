@@ -12,6 +12,9 @@ frontend/build/
 frontend/.vite/
 .DS_Store
 
+# Generated demo data (see scripts/generate_sample_logs.py)
+sample-logs/
+
 # Editor
 .idea/
 .vscode/
