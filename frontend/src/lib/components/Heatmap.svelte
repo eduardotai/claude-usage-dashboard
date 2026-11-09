@@ -23,12 +23,20 @@
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 	}
 
-	// Log-scaled intensity so a few huge days don't flatten everything else.
-	function levelFor(tokens: number, max: number): number {
+	// Quartile-based intensity over active days (like GitHub): a log scale against
+	// the max put nearly every active day in the top bucket.
+	const thresholds = $derived.by(() => {
+		const vals = data.cells.map((c) => c.tokens).filter((t) => t > 0).sort((a, b) => a - b);
+		if (!vals.length) return [0, 0, 0];
+		const q = (p: number) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))];
+		return [q(0.25), q(0.5), q(0.75)];
+	});
+	function levelFor(tokens: number, t: number[]): number {
 		if (tokens <= 0) return 0;
-		if (max <= 0) return 1;
-		const r = Math.log(tokens + 1) / Math.log(max + 1);
-		return Math.min(4, Math.max(1, Math.ceil(r * 4)));
+		if (tokens <= t[0]) return 1;
+		if (tokens <= t[1]) return 2;
+		if (tokens <= t[2]) return 3;
+		return 4;
 	}
 
 	const weeks = $derived.by(() => {
@@ -53,7 +61,7 @@
 					iso,
 					tokens,
 					count: cell?.count ?? 0,
-					level: inRange ? levelFor(tokens, data.max_tokens) : 0,
+					level: inRange ? levelFor(tokens, thresholds) : 0,
 					inRange
 				});
 				cursor.setDate(cursor.getDate() + 1);

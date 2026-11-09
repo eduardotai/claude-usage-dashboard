@@ -1,20 +1,20 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
+# Node / build
+node_modules/
+dist/
+frontend/.svelte-kit/
+frontend/.vite/
+*.tgz
+.DS_Store
 .env
 
-# Node / SvelteKit
-node_modules/
-frontend/.svelte-kit/
-frontend/build/
-frontend/.vite/
-.DS_Store
-
-# Generated demo data (see scripts/generate_sample_logs.py)
+# Generated demo data (see scripts/generate-demo-logs.mjs)
 sample-logs/
 
 # Editor
 .idea/
 .vscode/
+
+# Personal usage exports: never commit
+*unified-usage*.csv
+/imports/
+/agentburn-private/

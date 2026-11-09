@@ -1,0 +1,66 @@
+{
+  "name": "agentburn",
+  "version": "0.1.0",
+  "description": "Local-first, open-source dashboard of token usage and API-equivalent cost across AI coding agents (Claude Code, Codex, Cursor).",
+  "license": "MIT",
+  "author": "eduardotai",
+  "homepage": "https://github.com/eduardotai/claude-usage-dashboard#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eduardotai/claude-usage-dashboard.git"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "tokens",
+    "usage",
+    "cost",
+    "dashboard",
+    "ai-agents",
+    "local-first"
+  ],
+  "type": "module",
+  "bin": {
+    "agentburn": "dist/server/cli.js"
+  },
+  "files": [
+    "dist",
+    "pricing/litellm-snapshot.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build:ui && npm run build:server",
+    "build:ui": "cd frontend && vite build",
+    "build:server": "tsc -p tsconfig.json",
+    "start": "node dist/server/cli.js",
+    "check": "tsc -p tsconfig.json --noEmit && cd frontend && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test": "vitest run",
+    "demo:logs": "node scripts/generate-demo-logs.mjs",
+    "pricing:snapshot": "node scripts/update-pricing-snapshot.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@sveltejs/adapter-static": "^3.0.11",
+    "@sveltejs/kit": "^2.70.4",
+    "@sveltejs/vite-plugin-svelte": "^4.0.4",
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/node": "^20.19.43",
+    "chart.js": "^4.6.1",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "tailwindcss": "^4.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
+}

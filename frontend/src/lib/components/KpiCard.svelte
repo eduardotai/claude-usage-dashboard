@@ -1,16 +1,25 @@
 <script lang="ts">
+	import type { Provenance } from '$lib/types';
+	import ProvenanceBadge from './ProvenanceBadge.svelte';
+
 	interface Props {
 		label: string;
 		value: string;
 		sub?: string;
 		accent?: boolean;
 		delay?: number;
+		provenance?: Provenance;
+		/** Hover text for the provenance badge, when the default doesn't fit. */
+		provenanceTitle?: string;
 	}
-	let { label, value, sub = '', accent = false, delay = 0 }: Props = $props();
+	let { label, value, sub = '', accent = false, delay = 0, provenance, provenanceTitle }: Props = $props();
 </script>
 
 <div class="panel panel-hover rise kpi" style="animation-delay: {delay}ms" class:accent>
-	<span class="eyebrow">{label}</span>
+	<div class="head">
+		<span class="eyebrow">{label}</span>
+		{#if provenance}<ProvenanceBadge kind={provenance} title={provenanceTitle} />{/if}
+	</div>
 	<span class="num value">{value}</span>
 	{#if sub}
 		<span class="sub">{sub}</span>
@@ -27,6 +36,16 @@
 		gap: 0.55rem;
 		padding: 1.4rem 1.5rem;
 		overflow: hidden;
+	}
+	.head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.4rem 0.5rem;
+	}
+	.head :global(.eyebrow) {
+		white-space: nowrap;
 	}
 	.value {
 		font-size: clamp(1.5rem, 2.4vw, 2.2rem);
