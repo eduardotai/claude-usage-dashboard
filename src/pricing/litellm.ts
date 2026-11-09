@@ -76,12 +76,26 @@ export class PriceBook {
 
 	constructor(
 		private readonly table: PriceTable,
-		readonly info: PricingInfo
+		readonly info: PricingInfo,
+		/**
+		 * The snapshot bundled with this AgentBurn version. Models the active table lacks (an old
+		 * cache, a trimmed mirror) are priced from it, so a model's price never depends on which
+		 * source happened to load, only on whether a newer price exists.
+		 */
+		private readonly fallback: PriceBook | null = null
 	) {}
 
-	/** All price-table keys (for adapters that match a bill against list prices). */
+	/** All price-table keys, including the bundled fallback's. */
 	keys(): string[] {
-		return Object.keys(this.table);
+		return [...new Set([...Object.keys(this.table), ...(this.fallback?.keys() ?? [])])];
+	}
+
+	/**
+	 * The pinned price table that ships with this version (the bundled snapshot). Used where a
+	 * result must not depend on the environment, e.g. inferring Grok Bot's rate from a bill.
+	 */
+	pinned(): PriceBook {
+		return this.fallback ?? this;
 	}
 
 	resolve(model: string): { key: string; entry: LiteLLMEntry } | null {
@@ -94,6 +108,7 @@ export class PriceBook {
 				break;
 			}
 		}
+		if (!found && this.fallback) found = this.fallback.resolve(model);
 		this.cache.set(model, found);
 		return found;
 	}
@@ -183,8 +198,11 @@ export async function loadPriceBook(opts: LoadOptions = {}): Promise<PriceBook> 
 	} catch {
 		/* no usable cache */
 	}
+	// The bundled snapshot is always loaded: it is the pinned table and the fallback for
+	// models missing from a downloaded or cached one.
+	const snapshot = await loadSnapshot(opts.snapshotPath);
 	const book = (table: PriceTable, source: PricingSource, at: number) =>
-		new PriceBook(table, { source, fetchedAt: new Date(at).toISOString(), models: Object.keys(table).length, url: LITELLM_URL });
+		new PriceBook(table, { source, fetchedAt: new Date(at).toISOString(), models: Object.keys(table).length, url: LITELLM_URL }, snapshot);
 
 	if (cached && now() - cached.mtime < CACHE_TTL_MS) return book(cached.table, 'cache', cached.mtime);
 
@@ -204,6 +222,9 @@ export async function loadPriceBook(opts: LoadOptions = {}): Promise<PriceBook> 
 			/* offline, blocked or timed out: fall through */
 		}
 	}
-	if (cached) return book(cached.table, 'stale-cache', cached.mtime);
-	return loadSnapshot(opts.snapshotPath);
+	// Offline: a stale cache is only better than the bundled snapshot if it is newer than it
+	// (after an upgrade, an old cache would otherwise hide the newer bundled prices).
+	const snapAt = Date.parse(snapshot.info.fetchedAt ?? '');
+	if (cached && !(cached.mtime < snapAt)) return book(cached.table, 'stale-cache', cached.mtime);
+	return snapshot;
 }

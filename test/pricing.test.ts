@@ -78,8 +78,23 @@ describe('loadPriceBook', () => {
 		await writeFile(file, JSON.stringify(TEST_TABLE_BIG));
 		const old = new Date(Date.now() - 3 * 86_400_000);
 		await utimes(file, old, old);
-		const book = await loadPriceBook({ cacheDir: dir, fetchImpl: failFetch });
+		// The bundled snapshot is older still, so the stale cache is the newest prices we have.
+		const snapshotPath = join(dir, 'snap.json');
+		await writeFile(snapshotPath, JSON.stringify({ generated_at: new Date(Date.now() - 10 * 86_400_000).toISOString(), source: 'test', models: TEST_TABLE_BIG }));
+		const book = await loadPriceBook({ cacheDir: dir, fetchImpl: failFetch, snapshotPath });
 		expect(book.info.source).toBe('stale-cache');
+	});
+
+	it('prefers the bundled snapshot over a stale cache that is older than it', async () => {
+		const dir = await mkdtemp(join(tmpdir(), 'ab-'));
+		const file = join(dir, 'litellm-prices.json');
+		await writeFile(file, JSON.stringify(TEST_TABLE_BIG));
+		const old = new Date(Date.now() - 30 * 86_400_000);
+		await utimes(file, old, old);
+		const snapshotPath = join(dir, 'snap.json');
+		await writeFile(snapshotPath, JSON.stringify({ generated_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), source: 'test', models: TEST_TABLE_BIG }));
+		const book = await loadPriceBook({ cacheDir: dir, offline: true, snapshotPath });
+		expect(book.info.source).toBe('bundled');
 	});
 
 	it('falls back to the bundled snapshot when offline with no cache', async () => {

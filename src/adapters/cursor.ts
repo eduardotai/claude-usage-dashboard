@@ -40,7 +40,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findFiles, isDirectory, projectNameFromPath } from './fs.js';
-import { parseCsv } from './csv.js';
+import { parseCount, parseCsv } from './csv.js';
 import { grokUnifiedSources, loadGrokUnified } from './grok-unified.js';
 import { emptyStats, type Adapter, type AdapterResult, type AdapterScanStats, type RawUsageRecord } from '../core/types.js';
 
@@ -89,10 +89,7 @@ export function cursorPricingModel(model: string): string | undefined {
 
 export { parseCsv };
 
-const toInt = (v: string | undefined) => {
-	const x = Number(String(v ?? '').replace(/[, ]/g, ''));
-	return Number.isFinite(x) && x > 0 ? Math.round(x) : 0;
-};
+const toInt = parseCount;
 
 export function parseCursorCsv(text: string, stats: AdapterScanStats, seen: Set<string>): RawUsageRecord[] {
 	const rows = parseCsv(text.replace(/^\uFEFF/, ''));

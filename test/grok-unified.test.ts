@@ -55,7 +55,7 @@ describe('Grok Bot from the export', async () => {
 		const onDemand = botRecs.filter((r) => (r.billedUsd ?? 0) > 0);
 		for (const r of onDemand) expect(r.costEst).toBeCloseTo(r.billedUsd!, 10);
 		const w = store.agentStatuses().find((a) => a.id === 'grok-bot')!.warnings.join(' ');
-		expect(w).toMatch(/xai\/grok-4\.7 list prices \(same rate as xai\/grok-4\.6\).*2 on-demand charges/);
+		expect(w).toMatch(/xai\/grok-4\.7 list price \(\$2 input \/ \$0\.5 cached \/ \$6 output per M; same rate as xai\/grok-4\.6\).*2 on-demand charges/);
 	});
 
 	it('leaves the estimate unavailable when no charge pins down the rate', async () => {
@@ -123,7 +123,7 @@ describe('Grok Bot rate matching is independent of the price table', () => {
 		const a = await run(live);
 		const b = await run(snapshot);
 		expect(a.recs.every((r) => r.pricingModel === 'xai/grok-4.7' && r.cost === 'estimated')).toBe(true);
-		expect(a.warning).toMatch(/xai\/grok-4\.7 list prices \(same rate as xai\/grok-4\.6, xai\/grok-4\.7-latest\)/);
+		expect(a.warning).toMatch(/xai\/grok-4\.7 list price \(.*same rate as xai\/grok-4\.6, xai\/grok-4\.7-latest\)/);
 		// Same estimate whichever table is loaded.
 		expect(a.recs.map((r) => r.costEst)).toEqual(b.recs.map((r) => r.costEst));
 	});

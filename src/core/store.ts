@@ -83,7 +83,8 @@ export class UsageStore {
 		if (r.tokens === 'unavailable') return { ...r, costEst: null, cost: 'unavailable' };
 		if (typeof r.reportedCostUsd === 'number' && Number.isFinite(r.reportedCostUsd))
 			return { ...r, costEst: r.reportedCostUsd, cost: 'measured' };
-		const costEst = this.prices.cost({ ...r, model: r.pricingModel ?? r.model });
+		const book = r.pricingPinned ? this.prices.pinned() : this.prices;
+		const costEst = book.cost({ ...r, model: r.pricingModel ?? r.model });
 		return { ...r, costEst, cost: costEst === null ? 'unavailable' : 'estimated' };
 	}
 

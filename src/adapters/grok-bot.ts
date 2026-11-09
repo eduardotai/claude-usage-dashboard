@@ -119,12 +119,30 @@ export function createGrokBotAdapter(env: NodeJS.ProcessEnv = process.env, opts:
 		finalize(records, prices) {
 			const unmodelled = records.filter((r) => r.model === GROK_BOT_MODEL);
 			if (!unmodelled.length) return [];
-			const m = matchBilledRate(unmodelled, prices);
-			if (!m.key) return [`Grok Bot rows have no model, so their API-equivalent cost is unavailable (${m.reason}).`];
-			for (const r of unmodelled) r.pricingModel = m.key;
-			const also = m.matches.length > 1 ? ` (same rate as ${m.matches.slice(1, 4).join(', ')})` : '';
+			// Infer against the pinned (bundled) table first so the answer is the same online,
+			// offline, with a fresh or an old cache. Only if the bill matches no rate there (a
+			// rate newer than this AgentBurn version) look at the active table.
+			let m = matchBilledRate(unmodelled, prices.pinned());
+			let pinned = true;
+			if (!m.key && m.billed && !m.matches.length && prices.pinned() !== prices) {
+				m = matchBilledRate(unmodelled, prices);
+				pinned = false;
+			}
+			if (!m.key) {
+				if (!m.billed)
+					return ['Grok Bot rows have no model, and this export has no on-demand charges to match a rate against, so the API-equivalent estimate is unavailable. Tokens and billed amounts are unaffected.'];
+				return [`Grok Bot rows have no model, so their API-equivalent cost is unavailable: ${m.reason}${m.matches.length ? ` (${m.matches.slice(0, 4).join(', ')})` : ''}.`];
+			}
+			for (const r of unmodelled) {
+				r.pricingModel = m.key;
+				r.pricingPinned = pinned;
+			}
+			const e = (pinned ? prices.pinned() : prices).resolve(m.key)!.entry;
+			const perM = (v: number | undefined) => `$${+((v ?? 0) * 1e6).toFixed(4)}`;
+			const rate = `${perM(e.input_cost_per_token)} input / ${perM(e.cache_read_input_token_cost ?? e.input_cost_per_token)} cached / ${perM(e.output_cost_per_token)} output per M`;
+			const also = m.matches.length > 1 ? `; same rate as ${m.matches.slice(1, 4).join(', ')}${m.matches.length > 4 ? ', …' : ''}` : '';
 			return [
-				`Grok Bot rows have no model. Their API-equivalent cost uses ${m.key} list prices${also}, which exactly reproduce the ${m.billed} on-demand ${m.billed === 1 ? 'charge' : 'charges'} in your export.`
+				`Grok Bot rows have no model. Their API-equivalent cost uses the ${m.key} list price (${rate}${also}), which exactly reproduces the ${m.billed} on-demand ${m.billed === 1 ? 'charge' : 'charges'} in your export.`
 			];
 		}
 	});

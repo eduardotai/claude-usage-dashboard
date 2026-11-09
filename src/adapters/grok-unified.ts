@@ -25,7 +25,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { findFiles } from './fs.js';
-import { parseCsv } from './csv.js';
+import { parseCount, parseCsv } from './csv.js';
 import { emptyStats, type AdapterScanStats } from '../core/types.js';
 
 export interface GrokUnifiedOptions {
@@ -58,10 +58,16 @@ export function grokUnifiedSources(env: NodeJS.ProcessEnv = process.env, opts: G
 }
 
 const normKey = (k: string) => k.trim().toLowerCase().replace(/[\s_]+/g, '-');
-const int = (v: unknown) => {
-	const n = Number(String(v ?? '').replace(/[, ]/g, ''));
-	return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
-};
+const int = (v: unknown) => parseCount(String(v ?? ''));
+/** "0.0291435" or a spreadsheet-localized "0,0291435" / "1.234,50" -> number. */
+export function parseAmount(v: string | undefined): number {
+	let t = String(v ?? '').trim().replace(/^\$|\s/g, '');
+	if (!t) return NaN;
+	if (t.includes(',') && (!t.includes('.') || t.lastIndexOf(',') > t.lastIndexOf('.'))) t = t.replace(/\./g, '').replace(',', '.');
+	else t = t.replace(/,/g, '');
+	return Number(t);
+}
+
 const TOKEN_KEYS = ['prompt-text-tokens', 'cached-prompt-text-tokens', 'cache-write-text-tokens', 'completion-text-tokens'];
 
 export function parseGrokUnifiedCsv(text: string, stats: AdapterScanStats, seen: Set<string>): GrokUnifiedRow[] {
@@ -109,7 +115,7 @@ export function parseGrokUnifiedCsv(text: string, stats: AdapterScanStats, seen:
 		}
 		seen.add(id);
 		const currency = c.currency >= 0 ? (r[c.currency] ?? '').trim().toUpperCase() : 'USD';
-		const charged = c.charged >= 0 ? Number(r[c.charged]) : NaN;
+		const charged = c.charged >= 0 ? parseAmount(r[c.charged]) : NaN;
 		out.push({
 			id,
 			timestamp: ts,
@@ -125,7 +131,7 @@ export function parseGrokUnifiedCsv(text: string, stats: AdapterScanStats, seen:
 					}
 				: null,
 			units,
-			billedUsd: currency === 'USD' && Number.isFinite(charged) ? charged : null
+			billedUsd: (currency === 'USD' || currency === '') && Number.isFinite(charged) ? charged : null
 		});
 	}
 	return out;

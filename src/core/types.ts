@@ -30,6 +30,11 @@ export interface RawUsageRecord {
 	 * (e.g. Cursor's `claude-4.5-sonnet` -> `claude-sonnet-4-5`, Grok's `grok-4.5-build` -> `grok-4.5`).
 	 */
 	pricingModel?: string;
+	/**
+	 * Price `pricingModel` from the pinned (bundled) table instead of the active one: for rates
+	 * inferred from a bill, which must not drift with the downloaded price list.
+	 */
+	pricingPinned?: boolean;
 	/** Epoch milliseconds (UTC). */
 	timestamp: number;
 	inputTokens: number;

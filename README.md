@@ -119,6 +119,20 @@ tokens stored next to them.
   Subscription, so your Cursor usage on a legacy Cursor plan isn't in it.
 - Gemini CLI is not implemented yet.
 
+### What can differ between machines
+
+AgentBurn aims to give the same numbers for the same files everywhere. Known differences:
+
+| Behaviour | Depends on | What happens |
+|---|---|---|
+| Cursor local DB (`state.vscdb`) | Node 22.5+ (`node:sqlite`) | skipped on older Node, with a warning on the Cursor card; exports still work |
+| Codex `.jsonl.zst` rollouts | Node 22.15+ (zstd) | skipped on older Node, counted in a warning |
+| Day boundaries | your local timezone | days are bucketed in local time, like your agent's own UI |
+| Estimated cost of ordinary records | price source and its age | newer LiteLLM lists can add or reprice models; the footer names the source (`live`, `cache`, `stale-cache`, `bundled`). Use `--offline` for the bundled snapshot only |
+| Grok Bot estimate | AgentBurn version only | pinned to the bundled snapshot (see above) |
+| grok.com export re-saved by Excel/Sheets | locale | `;` or tab delimiters, decimal commas (`0,0426`) and grouped counts (`1.204`) are read correctly |
+| Non-USD `Pricing Currency` | export | billed amount left *unavailable* rather than mixed with USD |
+
 ### Grok Bot and the X Subscription
 
 Under the X Subscription, Cursor, Grok Bot, the Grok apps and Grok Build share one weekly
@@ -159,15 +173,18 @@ What we verified on a real export (Nov 2026, ~4.2k rows):
   on-demand charges.
 - **Est. API cost** (*estimated*) is what the same tokens would cost at API list prices, as
   for every other agent. Grok Bot rows have no model, so AgentBurn checks which xAI list
-  price reproduces **every** on-demand charge in your export. Matching models are compared
-  by what they would charge for each row of your export, not by their raw price-table
-  entries, so the result is the same with the live LiteLLM list or the bundled snapshot.
-  Several models with the same effective rate (e.g. `grok-4.6` and `grok-4.7`) count as one
-  rate, and the card names them. If no rate matches, or the matching rates would price your
-  rows differently (for example different long-context prices when you have prompts over
-  200k), the Grok Bot estimate stays *unavailable*. Prompts over 200k
-  tokens use LiteLLM's long-context rates; the export's on-demand rows didn't cover that
-  case.
+  price reproduces **every** on-demand charge in your export. The match runs against the
+  price snapshot **bundled with your AgentBurn version**, and the matched rows are priced
+  from that snapshot too, so the same export gives the same estimate on every machine:
+  online or offline, fresh install or old cache, whatever the live LiteLLM list holds that
+  day. Only if the snapshot has no matching rate (a model newer than your AgentBurn) does
+  AgentBurn try the current price table. Matching models are compared by what they would
+  charge for each row of your export, not by their raw price-table entries, so several
+  models with the same effective rate (e.g. `grok-4.6` and `grok-4.7`) count as one rate,
+  and the card names them. If no rate matches, the export has no on-demand rows, or the
+  matching rates would price your rows differently (for example different long-context
+  prices when you have prompts over 200k), the Grok Bot estimate stays *unavailable* and
+  the card says why. Tokens and billed amounts don't depend on any of this.
 
 **Cursor rows in two exports.** If you import both Cursor's own CSV and the grok.com export,
 Cursor's CSV wins inside the time span it covers, and the grok.com rows fill in outside it.
@@ -193,7 +210,10 @@ pay per token. AgentBurn shows what the same tokens would cost at public API lis
 for perspective. Details:
 
 - Prices come from LiteLLM. Resolution order: fresh disk cache (<24h) → live download →
-  stale cache → the snapshot bundled in the package. The footer shows which one is in use.
+  stale cache → the snapshot bundled in the package. A stale cache that is older than the
+  bundled snapshot (e.g. after upgrading AgentBurn while offline) is skipped in favour of
+  the snapshot. A model missing from the table in use is looked up in the snapshot. The
+  footer shows which source is in use.
 - Input, output, cache read, 5-minute and 1-hour cache writes are priced separately;
   long-context tiers (`>200k` prompt tokens) apply when LiteLLM lists them.
 - Model ids are matched exactly, after stripping provider prefixes, dated snapshot
