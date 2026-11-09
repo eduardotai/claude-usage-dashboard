@@ -62,7 +62,8 @@ describe('aggregations', () => {
 		const st = store.agentStatuses();
 		expect(st.find((a) => a.id === 'claude-code')).toMatchObject({ status: 'available', detected: true });
 		expect(st.find((a) => a.id === 'codex')).toMatchObject({ status: 'available', detected: false });
-		expect(st.find((a) => a.id === 'grok-bot')).toMatchObject({ status: 'planned', detected: false });
+		expect(st.find((a) => a.id === 'gemini-cli')).toMatchObject({ status: 'planned', detected: false });
+		expect(st.find((a) => a.id === 'grok-bot')).toMatchObject({ status: 'available', detected: false });
 		expect(st.find((a) => a.id === 'grok-bot')!.note).toMatch(/cloud/);
 	});
 });

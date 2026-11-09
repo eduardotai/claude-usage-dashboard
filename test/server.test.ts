@@ -52,7 +52,7 @@ describe('HTTP API', () => {
 	it('meta exposes pricing source and agent coverage', async () => {
 		const { body } = await get('/api/meta');
 		expect(body.pricing.source).toBe('bundled');
-		expect(body.agents.map((a: any) => a.id)).toEqual(['claude-code', 'codex', 'cursor', 'grok-build', 'gemini-cli', 'grok-bot']);
+		expect(body.agents.map((a: any) => a.id)).toEqual(['claude-code', 'codex', 'cursor', 'grok-build', 'grok-bot', 'grok-apps', 'gemini-cli']);
 	});
 
 	it('all stats endpoints respond', async () => {

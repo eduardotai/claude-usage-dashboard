@@ -63,7 +63,8 @@ export class UsageStore {
 				continue;
 			}
 			scans.set(a.id, res.stats);
-			if (res.warnings?.length) warnings.set(a.id, res.warnings);
+			const notes = [...(res.warnings ?? []), ...(a.finalize?.(res.records, this.prices) ?? [])];
+			if (notes.length) warnings.set(a.id, notes);
 			for (const r of res.records) records.push(this.price(r));
 		}
 		records.sort((a, b) => a.timestamp - b.timestamp);

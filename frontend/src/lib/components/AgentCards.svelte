@@ -15,8 +15,10 @@
 	const HINTS: Record<string, string> = {
 		'claude-code': 'Use Claude Code, or point at another folder with --claude-dir.',
 		codex: 'Use Codex CLI, or set --codex-home / CODEX_HOME.',
-		cursor: 'In Cursor’s web dashboard open Usage and export the CSV, then drop it into ~/.agentburn/imports/cursor/ (or pass --cursor-csv).',
-		'grok-build': 'Use Grok Build, or set --grok-home / GROK_HOME.'
+		cursor: 'Export usage from Cursor’s dashboard into ~/.agentburn/imports/cursor/, or on the X Subscription the grok.com export into ~/.agentburn/imports/grok/.',
+		'grok-build': 'Use Grok Build, or set --grok-home / GROK_HOME.',
+		'grok-bot': 'Grok Bot runs in the cloud. Export usage at grok.com/dashboard → Usage and drop the CSV into ~/.agentburn/imports/grok/ (or pass --grok-csv).',
+		'grok-apps': 'Grok chat, voice and imagine come from the same grok.com usage export (~/.agentburn/imports/grok/).'
 	};
 
 	type State = 'detected' | 'idle' | 'missing' | 'planned';
@@ -76,6 +78,16 @@
 						<ProvenanceBadge kind={u.cost_provenance} />
 					</span>
 				</div>
+				{#if u.billed !== null}
+					<div class="billed">
+						<span class="pair">
+							<span class="tag">billed</span>
+							<span class="num billed-val">{money(u.billed === 0 ? 0 : u.billed)}</span>
+							<ProvenanceBadge kind="measured" title="Measured: what was actually charged, from your usage export. Plan-included usage is $0." />
+						</span>
+						<span class="billed-sub">{u.charged_records ? `${grouped(u.charged_records)} on-demand ${u.charged_records === 1 ? 'charge' : 'charges'}` : 'all included in plan'}</span>
+					</div>
+				{/if}
 				{#if u.token_coverage < 1}
 					<p class="cov num">Tokens recorded for {pct(u.token_coverage)} of calls · {grouped(u.unmeasured_calls)} counted as calls only</p>
 				{/if}
@@ -215,6 +227,24 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.45rem 0.9rem;
+	}
+	.billed {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.3rem 0.7rem;
+		padding: 0.5rem 0.65rem;
+		border-radius: 10px;
+		background: rgba(143, 166, 126, 0.06);
+		border: 1px solid rgba(143, 166, 126, 0.14);
+	}
+	.billed-val {
+		font-size: 0.9rem;
+		color: var(--color-cream);
+	}
+	.billed-sub {
+		font-size: 0.68rem;
+		color: var(--color-muted);
 	}
 	.tag {
 		font-family: var(--font-mono);

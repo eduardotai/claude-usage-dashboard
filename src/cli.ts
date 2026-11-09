@@ -29,6 +29,9 @@ Options:
       --cursor-csv <p>  Cursor usage CSV export, file or folder (repeatable;
                         also read from ~/.agentburn/imports/cursor/)
       --cursor-dir <p>  Cursor "User" settings dir (env CURSOR_USER_DIR)
+      --grok-csv <p>    grok.com usage export (Grok Bot, Cursor on the X Subscription,
+                        Grok apps), file or folder (repeatable; also read from
+                        ~/.agentburn/imports/grok/)
   -v, --version         Print version
   -h, --help            Show this help
 
@@ -38,6 +41,8 @@ Environment:
   GROK_HOME             Grok Build home
   AGENTBURN_CURSOR_CSV  Comma-separated Cursor CSV files or folders
   CURSOR_USER_DIR       Cursor "User" dir (holds globalStorage/state.vscdb)
+  AGENTBURN_GROK_CSV    Comma-separated grok.com usage exports (files or folders)
+  AGENTBURN_IMPORTS_DIR Import drop folder (default ~/.agentburn/imports)
   AGENTBURN_OFFLINE=1   Same as --offline
   AGENTBURN_CACHE_DIR   Where the downloaded price table is cached
 
@@ -107,6 +112,7 @@ async function main() {
 			'grok-home': { type: 'string' },
 			'cursor-csv': { type: 'string', multiple: true },
 			'cursor-dir': { type: 'string' },
+			'grok-csv': { type: 'string', multiple: true },
 			version: { type: 'boolean', short: 'v', default: false },
 			help: { type: 'boolean', short: 'h', default: false }
 		},
@@ -127,10 +133,11 @@ async function main() {
 	if (typeof v['grok-home'] === 'string') env.GROK_HOME = v['grok-home'];
 	if (typeof v['cursor-dir'] === 'string') env.CURSOR_USER_DIR = v['cursor-dir'];
 	const cursorCsv = (values as { 'cursor-csv'?: string[] })['cursor-csv'] ?? [];
+	const grokCsv = (values as { 'grok-csv'?: string[] })['grok-csv'] ?? [];
 
 	const t0 = Date.now();
 	const prices = await loadPriceBook({ offline });
-	const store = new UsageStore(createAdapters(env, { cursor: { csv: cursorCsv } }), prices);
+	const store = new UsageStore(createAdapters(env, { cursor: { csv: cursorCsv }, grokCsv }), prices);
 	await store.refresh();
 	const records = await store.all();
 

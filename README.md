@@ -4,7 +4,7 @@
 
 **What your AI coding agents burn — in tokens and API-equivalent dollars.**
 
-A local-first, open-source dashboard for Claude Code, Codex CLI, Cursor and Grok Build.
+A local-first, open-source dashboard for Claude Code, Codex CLI, Cursor, Grok Build and Grok Bot.
 One command, a polished web UI, and honest numbers: every figure says whether it was
 **measured**, **estimated** or is **unavailable**.
 
@@ -74,7 +74,8 @@ Or install globally: `npm i -g agentburn && agentburn`.
 | `--grok-home` / `GROK_HOME` | Grok Build home (default `~/.grok`) |
 | `--cursor-csv` / `AGENTBURN_CURSOR_CSV` | Cursor usage CSV export(s), files or folders (repeatable / comma-separated) |
 | `--cursor-dir` / `CURSOR_USER_DIR` | Cursor's `User` settings dir (holds `globalStorage/state.vscdb`) |
-| `AGENTBURN_IMPORTS_DIR` | Drop folder for imports (default `~/.agentburn/imports`; Cursor CSVs go in `cursor/`) |
+| `--grok-csv` / `AGENTBURN_GROK_CSV` | grok.com usage export(s), files or folders (repeatable / comma-separated) |
+| `AGENTBURN_IMPORTS_DIR` | Drop folder for imports (default `~/.agentburn/imports`; Cursor CSVs go in `cursor/`, grok.com exports in `grok/`) |
 | `AGENTBURN_CACHE_DIR` | Where the price table is cached |
 
 ## Where the data comes from
@@ -83,10 +84,11 @@ Or install globally: `npm i -g agentburn && agentburn`.
 | --- | --- | --- | --- | --- |
 | Claude Code | ✅ | `~/.claude/projects/**/*.jsonl`, `~/.config/claude/projects/**/*.jsonl` (incl. `subagents/`) | measured | estimated |
 | Codex CLI | ✅ | `~/.codex/sessions/**/rollout-*.jsonl` and `~/.codex/archived_sessions/`, incl. `.jsonl.zst` (needs Node 22.15+) | measured | estimated |
-| Cursor | ✅ | 1. usage CSV you export (dropped in `~/.agentburn/imports/cursor/`) · 2. local `state.vscdb` (read-only copy; needs Node 22.5+) | measured from CSV; usually *unavailable* from the DB | estimated (Claude/GPT ids); *unavailable* for Cursor-only models |
+| Cursor | ✅ | 1. usage CSV you export (dropped in `~/.agentburn/imports/cursor/`) · 2. `cursor` rows of the grok.com export (X Subscription) · 3. local `state.vscdb` (read-only copy; needs Node 22.5+) | measured from the exports; usually *unavailable* from the DB | estimated (Claude/GPT ids); *unavailable* for Cursor-only models; **billed** from the grok.com export |
 | Grok Build | ✅ | `~/.grok/sessions/<cwd>/<session>/updates.jsonl` (+ `summary.json`) | measured | **measured** when Grok Build recorded it, else estimated |
+| Grok Bot | ✅ | grok.com usage export (dropped in `~/.agentburn/imports/grok/`); nothing local exists | measured | **billed** (actual charge) + estimated, see [below](#grok-bot-and-the-x-subscription) |
+| Grok apps | ✅ | same export: Grok chat, voice, imagine | measured for chat; voice/imagine have no tokens | billed + estimated where a model is given |
 | Gemini CLI | 🗺 planned | — | | |
-| Grok Bot | 🗺 planned | nothing local; see [below](#grok-bot-and-the-x-subscription) | | |
 
 Cursor's `User` dir is `~/Library/Application Support/Cursor/User` (macOS),
 `~/.config/Cursor/User` (Linux) or `%APPDATA%\Cursor\User` (Windows).
@@ -112,6 +114,9 @@ tokens stored next to them.
 - **Codex `.zst` rollouts** need Node 22.15+ (zstd); on older Node they are skipped and the
   agent card says how many.
 - **Grok Build** writes usage only when a turn completes; interrupted turns are not on disk.
+- **The grok.com export** has no project or session columns, so its rows show as project
+  `(grok.com export)` / `(cursor export)`. It includes only what grok.com bills against the X
+  Subscription, so your Cursor usage on a legacy Cursor plan isn't in it.
 - Gemini CLI is not implemented yet.
 
 ### Grok Bot and the X Subscription
@@ -119,18 +124,51 @@ tokens stored next to them.
 Under the X Subscription, Cursor, Grok Bot, the Grok apps and Grok Build share one weekly
 usage pool, viewed at grok.com/dashboard → Usage
 ([Cursor help: the X Subscription](https://cursor.com/help/the-x-subscription/overview),
-[usage limits](https://cursor.com/help/models-and-usage/usage-limits)). What that means for
-AgentBurn:
+[usage limits](https://cursor.com/help/models-and-usage/usage-limits)). Grok Bot runs in the
+cloud and keeps no logs on your machine, so its only source is that page's **Export**:
 
-- **Grok Build** keeps full per-turn usage locally, so it has its own adapter.
-- **Grok models used inside Cursor** show up in the Cursor CSV under Cursor's model names
-  (e.g. `cursor-grok-4.6-xhigh-fast`), so the Cursor adapter covers them.
-- **Grok Bot** runs in the cloud and leaves no usage logs on your machine. Its usage is only
-  in the account-wide export at grok.com/dashboard. That file's columns, and whether it
-  breaks usage down by product, are not documented anywhere public; one report found no
-  per-Bot breakdown ([Cursor forum](https://forum.cursor.com/t/bot-agent-credit-usage/173671)).
-  AgentBurn won't guess a format it hasn't seen, so Grok Bot stays *planned*. If you have that
-  export, a redacted header row in an issue is all it takes to add it.
+1. grok.com/dashboard → Usage → Export.
+2. Drop the CSV into `~/.agentburn/imports/grok/` (or `npx agentburn --grok-csv <file>`).
+   Overlapping exports are fine: rows are de-duplicated by `Billing Item ID`.
+
+The export has one row per billable event:
+`Billing Item ID, Event Time, Product, Charge Category, Usage Type, Principal Type, Principal ID, Usage, Pricing Currency, Pricing Contracted, Model, User Email`.
+AgentBurn maps `Product` to agents: `grok-bot` → **Grok Bot**, `cursor` → **Cursor**,
+everything else (`grok-chat`, `grok-voice`, `grok-imagine`) → **Grok apps**. It never reads
+the `User Email` or `Principal ID` columns.
+
+What we verified on a real export (Nov 2026, ~4.2k rows):
+
+- `Usage` is JSON with four **disjoint** token buckets: `prompt-text-tokens` (uncached input),
+  `cached-prompt-text-tokens`, `cache-write-text-tokens`, `completion-text-tokens`.
+  Unlike OpenAI-style logs, cached tokens are *not* inside the prompt count: ~90% of Grok Bot
+  rows have cached > prompt (e.g. prompt 2, cached 130k).
+- Every on-demand charge equals **exactly** prompt × $2 + cached × $0.50 + cache-write × $2 +
+  completion × $6 per million, which is xAI's list price for `grok-4.6`/`grok-4.7`. That
+  confirms the buckets and that cache writes bill at the input rate.
+- `Usage Type` is `included` (inside the plan, charged $0) or `on_demand`;
+  `Pricing Contracted` is the amount actually charged in USD.
+- Grok Bot rows carry no `Model`. Grok chat rows do (e.g. `grok-4.7`), with differently
+  spelled keys (`Prompt text tokens`). Voice and Imagine use `Audio seconds` and
+  `Generated image`, which AgentBurn counts as calls without tokens.
+- Rows whose four token counts are all 0 are kept as measured zeros.
+
+**Billed vs. API-equivalent.** For export rows the dashboard shows both:
+
+- **Billed** (*measured*) is what xAI actually charged: $0 for plan-included usage, plus any
+  on-demand charges.
+- **Est. API cost** (*estimated*) is what the same tokens would cost at API list prices, as
+  for every other agent. Grok Bot rows have no model, so AgentBurn checks which xAI list
+  price reproduces **every** on-demand charge in your export. If exactly one rate card does,
+  Grok Bot is estimated at it, and the card names the rate it used. With no on-demand
+  charges, or ambiguous ones, the Grok Bot estimate stays *unavailable*. Prompts over 200k
+  tokens use LiteLLM's long-context rates; the export's on-demand rows didn't cover that
+  case.
+
+**Cursor rows in two exports.** If you import both Cursor's own CSV and the grok.com export,
+Cursor's CSV wins inside the time span it covers, and the grok.com rows fill in outside it.
+Rows can't be matched one-to-one: the exports round times differently and the Cursor CSV
+has no billing id. The local DB only fills gaps that neither export covers.
 
 ## Privacy
 
@@ -159,6 +197,9 @@ for perspective. Details:
   guessing: unknown models are reported as unpriced.
 - Agent-specific ids map to public ones only by exact rules: Grok Build's `grok-4.5-build`
   → `grok-4.5`; Cursor's `claude-4.5-sonnet` → `claude-sonnet-4-5`.
+- **Billed** amounts from the grok.com export are real charges, not estimates, and are shown
+  separately. Usage included in a plan bills $0, so billed and estimated figures aren't
+  comparable.
 - **Grok Build records its own cost** for each turn (`costUsdTicks`, xAI list price). When it
   is present AgentBurn uses it and marks the cost *measured*; it is still the API price, not
   what your plan charges.
@@ -229,7 +270,7 @@ accepts `start`, `end` (`yyyy-mm-dd`), `project` and `agent` (e.g. `claude-code`
 | `/api/health` | status + version |
 | `/api/meta` | version, pricing source, agents with source, notes, warnings, data paths and scan stats |
 | `/api/agents` | agents (incl. planned) with usage in the current filter |
-| `/api/stats/summary` | totals, breakdown, `estimated_cost`, `cost_coverage`, `total_calls`, `unmeasured_calls`, `token_coverage`, `unpriced_models`, `provenance` |
+| `/api/stats/summary` | totals, breakdown, `estimated_cost`, `billed_cost` (null without a bill), `cost_coverage`, `total_calls`, `unmeasured_calls`, `token_coverage`, `unpriced_models`, `provenance` |
 | `/api/stats/daily` | per-day tokens, cost and calls with a `by_agent` split (`days=N` for a trailing window) |
 | `/api/stats/models` · `/projects` · `/agents` | grouped tokens, calls, cost (`null` when unpriced) |
 | `/api/stats/heatmap` | trailing-year daily cells (`days=30..730`) |
@@ -242,7 +283,8 @@ git clone https://github.com/eduardotai/claude-usage-dashboard agentburn && cd a
 npm install
 npm run demo:logs                               # synthetic multi-agent logs in ./sample-logs
 npm run dev -- --claude-dir ./sample-logs/claude --codex-home ./sample-logs/codex \
-  --grok-home ./sample-logs/grok --cursor-csv ./sample-logs/cursor --cursor-dir ./sample-logs/cursor-user
+  --grok-home ./sample-logs/grok --cursor-csv ./sample-logs/cursor --cursor-dir ./sample-logs/cursor-user \
+  --grok-csv ./sample-logs/grok/export
                                                 # API :4317 (reload) + UI :5173 (HMR)
 npm test                                        # vitest: parsers, dedupe, pricing, API
 npm run check                                   # tsc + svelte-check
@@ -265,7 +307,8 @@ in `src/adapters/index.ts`, and add fixtures that reproduce the agent's real log
 - [x] Codex CLI adapter (running totals, forks, archives, `.zst`)
 - [x] Cursor adapter: usage CSV + local DB, with *unavailable* tokens made explicit
 - [x] Grok Build adapter, with the cost Grok Build records itself
-- [ ] Grok Bot (needs a verified grok.com usage export format)
+- [x] Grok Bot, Grok apps and X-Subscription Cursor usage from the grok.com usage export,
+  with billed amounts next to API-equivalent estimates
 - [ ] Sessions view and per-session drill-down
 - [ ] Export (CSV / JSON) and a `--json` CLI summary
 - [ ] Gemini CLI adapter

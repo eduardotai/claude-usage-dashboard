@@ -17,6 +17,10 @@ export interface Summary {
 		cache_read: number;
 	};
 	estimated_cost: number;
+	/** Actually charged per billing exports (USD); null when no data comes from a bill. */
+	billed_cost: number | null;
+	billed_records: number;
+	charged_records: number;
 	cost_coverage: number;
 	unpriced_models: UnpricedModel[];
 	total_messages: number;
@@ -67,6 +71,9 @@ interface Costed {
 	cost: number | null;
 	cost_provenance: Provenance;
 	cost_coverage: number;
+	billed: number | null;
+	billed_records: number;
+	charged_records: number;
 	share: number;
 	agents: string[];
 }
@@ -123,6 +130,9 @@ export interface AgentInfo {
 		sessions: number;
 		cost: number | null;
 		cost_provenance: Provenance;
+		billed: number | null;
+		billed_records: number;
+		charged_records: number;
 	} | null;
 }
 

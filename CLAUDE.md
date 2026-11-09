@@ -42,6 +42,10 @@ starts a localhost server that serves both the JSON API and the built UI.
 - Records with no token data get `tokens: 'unavailable'` (they count as `calls`, never as 0
   tokens). A cost the agent recorded itself goes in `reportedCostUsd` (cost `measured`).
   Agent-specific model ids map to LiteLLM ids via `pricingModel`, by exact rules only.
+- Billing exports (grok.com usage CSV) contain the user's email and account id: never read
+  those columns into records, never commit a real export, and build fixtures from synthetic
+  rows only. Charged amounts go in `billedUsd` (shown as "Billed", measured), never mixed
+  into the API-equivalent estimate.
 - Optional Node features (`node:sqlite`, zstd) must degrade with a warning on Node 20, and
   their tests use `it.runIf`.
 - Keep API responses flat and snake_case; mirror changes in `frontend/src/lib/types.ts`.

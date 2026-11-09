@@ -213,6 +213,18 @@
 						accent
 						delay={120}
 					/>
+					{#if data.summary.billed_cost !== null}
+						<KpiCard
+							label="Billed"
+							value={money(data.summary.billed_cost)}
+							sub={data.summary.charged_records
+								? `actual charges · ${grouped(data.summary.charged_records)} on-demand, ${grouped(data.summary.billed_records - data.summary.charged_records)} included`
+								: `actual charges · all ${grouped(data.summary.billed_records)} included in plan`}
+							provenance="measured"
+							provenanceTitle="Measured: what was actually charged, from your usage export. Usage included in your plan is $0. Not comparable to the API-equivalent estimate."
+							delay={145}
+						/>
+					{/if}
 					<KpiCard label="Avg / active day" value={compact(data.summary.avg_tokens_per_active_day)} sub="tokens" delay={170} />
 					<KpiCard label="Model calls" value={grouped(data.summary.total_calls)} sub="{grouped(data.summary.total_sessions)} {data.summary.total_sessions === 1 ? 'session' : 'sessions'}" delay={220} />
 					<KpiCard label="Projects" value={grouped(data.summary.total_projects)} sub="{data.summary.total_models} {data.summary.total_models === 1 ? 'model' : 'models'} used" delay={270} />
@@ -324,7 +336,7 @@
 					<span>
 						Costs are API-equivalent estimates from
 						<a href="https://github.com/BerriAI/litellm" target="_blank" rel="noreferrer">LiteLLM</a> prices
-						({PRICING_SOURCE[data.meta.pricing.source] ?? data.meta.pricing.source}, {data.meta.pricing.models} models), or the cost an agent recorded itself (Grok Build) — not your subscription bill.
+						({PRICING_SOURCE[data.meta.pricing.source] ?? data.meta.pricing.source}, {data.meta.pricing.models} models), or the cost an agent recorded itself (Grok Build) — not your subscription bill. “Billed” is what a usage export says was actually charged.
 					</span>
 				</footer>
 			</div>
@@ -588,7 +600,7 @@
 	/* KPI grid */
 	.kpis {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 		gap: 1.1rem;
 	}
 
@@ -717,7 +729,7 @@
 
 	@media (max-width: 860px) {
 		.kpis {
-			grid-template-columns: repeat(2, 1fr);
+			grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 		}
 		.split {
 			grid-template-columns: 1fr;

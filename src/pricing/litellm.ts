@@ -79,6 +79,11 @@ export class PriceBook {
 		readonly info: PricingInfo
 	) {}
 
+	/** All price-table keys (for adapters that match a bill against list prices). */
+	keys(): string[] {
+		return Object.keys(this.table);
+	}
+
 	resolve(model: string): { key: string; entry: LiteLLMEntry } | null {
 		if (this.cache.has(model)) return this.cache.get(model)!;
 		let found: { key: string; entry: LiteLLMEntry } | null = null;

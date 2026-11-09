@@ -26,7 +26,13 @@
  *    0/0 they are marked `unavailable` (never 0) and only the call is counted.
  *    Needs `node:sqlite` (Node 22.5+); the DB is copied to a temp dir first, never opened in place.
  *
- * When both exist, DB requests inside the CSV's time range are dropped (the CSV wins).
+ * 3. Cursor rows of the Grok unified usage export (X Subscription; see ./grok-unified.ts). Same
+ *    token buckets, no Max Mode/Kind detail, plus the amount actually charged.
+ *
+ * Precedence when sources overlap in time: Cursor CSV > Grok export > local DB. A lower source's
+ * rows are dropped inside the time span covered by a higher source's rows (rows can't be matched
+ * one-to-one: the two exports round timestamps differently and the DB has no request ids that
+ * appear in either).
  */
 import { copyFile, mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -34,11 +40,15 @@ import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findFiles, isDirectory, projectNameFromPath } from './fs.js';
+import { parseCsv } from './csv.js';
+import { grokUnifiedSources, loadGrokUnified } from './grok-unified.js';
 import { emptyStats, type Adapter, type AdapterResult, type AdapterScanStats, type RawUsageRecord } from '../core/types.js';
 
 export interface CursorOptions {
 	/** CSV files or directories with CSVs (in addition to the default import dir). */
 	csv?: string[];
+	/** Grok unified usage exports, whose `cursor` rows are Cursor usage. */
+	grokCsv?: string[];
 }
 
 const expand = (p: string) => resolve(p.replace(/^~(?=$|[\\/])/, homedir()));
@@ -77,39 +87,7 @@ export function cursorPricingModel(model: string): string | undefined {
 
 // --- CSV --------------------------------------------------------------------
 
-/** Minimal RFC 4180 parser (quoted fields, escaped quotes, CRLF). */
-export function parseCsv(text: string): string[][] {
-	const rows: string[][] = [];
-	let row: string[] = [];
-	let field = '';
-	let q = false;
-	for (let i = 0; i < text.length; i++) {
-		const c = text[i]!;
-		if (q) {
-			if (c === '"') {
-				if (text[i + 1] === '"') {
-					field += '"';
-					i++;
-				} else q = false;
-			} else field += c;
-		} else if (c === '"') q = true;
-		else if (c === ',') {
-			row.push(field);
-			field = '';
-		} else if (c === '\n' || c === '\r') {
-			if (c === '\r' && text[i + 1] === '\n') i++;
-			row.push(field);
-			rows.push(row);
-			row = [];
-			field = '';
-		} else field += c;
-	}
-	if (field !== '' || row.length) {
-		row.push(field);
-		rows.push(row);
-	}
-	return rows.filter((r) => r.some((f) => f.trim() !== ''));
-}
+export { parseCsv };
 
 const toInt = (v: string | undefined) => {
 	const x = Number(String(v ?? '').replace(/[, ]/g, ''));
@@ -335,8 +313,8 @@ export function createCursorAdapter(env: NodeJS.ProcessEnv = process.env, opts: 
 		id: 'cursor',
 		label: 'Cursor',
 		status: 'available',
-		source: 'Usage CSV export (tokens) + local state.vscdb (requests)',
-		dataPaths: () => [...cursorCsvSources(env, opts), join(cursorUserDir(env), 'globalStorage', 'state.vscdb')],
+		source: 'Usage CSV export or grok.com export (tokens) + local state.vscdb (requests)',
+		dataPaths: () => [...cursorCsvSources(env, opts), ...grokUnifiedSources(env, { csv: opts.grokCsv }), join(cursorUserDir(env), 'globalStorage', 'state.vscdb')],
 		async load(): Promise<AdapterResult> {
 			const stats = emptyStats();
 			const warnings: string[] = [];
@@ -361,18 +339,51 @@ export function createCursorAdapter(env: NodeJS.ProcessEnv = process.env, opts: 
 				dbRecords = res.records;
 				if (res.warning) warnings.push(res.warning);
 			}
-			if (csvRecords.length && dbRecords.length) {
+			// Cursor rows from the Grok unified export (X Subscription).
+			const grok = await loadGrokUnified(env, { csv: opts.grokCsv });
+			stats.files += grok.stats.files;
+			let grokRecords: RawUsageRecord[] = grok.rows
+				.filter((r) => r.product === 'cursor')
+				.map((r) => {
+					const t = r.tokens ?? { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 };
+					const model = r.model || 'unknown';
+					const rec: RawUsageRecord = {
+						agent: 'cursor',
+						project: '(cursor export)',
+						session: 'grok-export:cursor',
+						model,
+						pricingModel: cursorPricingModel(model),
+						timestamp: r.timestamp,
+						inputTokens: t.input,
+						outputTokens: t.output,
+						cacheReadTokens: t.cacheRead,
+						cacheWriteTokens: t.cacheWrite,
+						cacheWrite1hTokens: 0,
+						sidechain: false,
+						tokens: r.tokens ? 'measured' : 'unavailable',
+						calls: 1,
+						billedUsd: r.billedUsd
+					};
+					return rec;
+				});
+			const span = (rs: RawUsageRecord[]) => {
 				let min = Infinity;
 				let max = -Infinity;
-				for (const r of csvRecords) {
+				for (const r of rs) {
 					min = Math.min(min, r.timestamp);
 					max = Math.max(max, r.timestamp);
 				}
-				const before = dbRecords.length;
-				dbRecords = dbRecords.filter((r) => r.timestamp < min || r.timestamp > max);
-				stats.duplicatesDropped += before - dbRecords.length;
-			}
-			const records = [...csvRecords, ...dbRecords];
+				return { min, max };
+			};
+			const outside = (rs: RawUsageRecord[], ...spans: { min: number; max: number }[]) => {
+				const kept = rs.filter((r) => spans.every((s) => r.timestamp < s.min || r.timestamp > s.max));
+				stats.duplicatesDropped += rs.length - kept.length;
+				return kept;
+			};
+			const csvSpan = span(csvRecords);
+			grokRecords = outside(grokRecords, csvSpan);
+			dbRecords = outside(dbRecords, csvSpan, span(grokRecords));
+			const records = [...csvRecords, ...grokRecords, ...dbRecords];
 			stats.records = records.length;
 			return { records, stats, warnings };
 		}

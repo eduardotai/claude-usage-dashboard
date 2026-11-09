@@ -30,6 +30,8 @@ export function applyFilters(records: UsageRecord[], f: Filters): UsageRecord[] 
 
 /** Costs keep 4 decimals so sub-cent usage is not shown as $0.00; the UI formats. */
 const roundCost = (v: number) => Math.round(v * 10_000) / 10_000;
+/** Billed amounts are real money: keep micro-dollars. */
+const roundBilled = (v: number) => Math.round(v * 1_000_000) / 1_000_000;
 
 interface CostAcc {
 	cost: number;
@@ -39,13 +41,22 @@ interface CostAcc {
 	measured: boolean;
 	calls: number;
 	measuredCalls: number;
+	/** Actual charges from billing exports. */
+	billed: number;
+	billedRecords: number;
+	chargedRecords: number;
 }
-const newAcc = (): CostAcc => ({ cost: 0, pricedTokens: 0, tokens: 0, estimated: false, measured: false, calls: 0, measuredCalls: 0 });
+const newAcc = (): CostAcc => ({ cost: 0, pricedTokens: 0, tokens: 0, estimated: false, measured: false, calls: 0, measuredCalls: 0, billed: 0, billedRecords: 0, chargedRecords: 0 });
 function addCost(acc: CostAcc, r: UsageRecord) {
 	const t = totalTokens(r);
 	acc.tokens += t;
 	acc.calls += r.calls;
 	if (r.tokens === 'measured') acc.measuredCalls += r.calls;
+	if (typeof r.billedUsd === 'number') {
+		acc.billed += r.billedUsd;
+		acc.billedRecords++;
+		if (r.billedUsd > 0) acc.chargedRecords++;
+	}
 	if (r.costEst !== null) {
 		acc.cost += r.costEst;
 		acc.pricedTokens += t;
@@ -99,6 +110,14 @@ export function summary(records: UsageRecord[]) {
 		total_tokens: total,
 		breakdown,
 		estimated_cost: roundCost(acc.cost),
+		/**
+		 * What was actually charged, from billing exports (grok.com). null when no record comes
+		 * from a bill. Plan-included usage bills $0, so this is NOT comparable to estimated_cost.
+		 */
+		billed_cost: acc.billedRecords ? roundBilled(acc.billed) : null,
+		billed_records: acc.billedRecords,
+		/** Billed records with a nonzero charge (e.g. on-demand usage beyond the plan). */
+		charged_records: acc.chargedRecords,
 		/** Share of tokens (0..1) that could be priced. 1 when there is no usage. */
 		cost_coverage: total ? acc.pricedTokens / total : 1,
 		unpriced_models: [...unpriced.values()].sort((a, b) => b.tokens - a.tokens),
@@ -201,6 +220,9 @@ function groupBy(records: UsageRecord[], key: (r: UsageRecord) => string) {
 			agents: [...g.agents].sort(),
 			cost: g.acc.pricedTokens > 0 ? roundCost(g.acc.cost) : null,
 			cost_provenance: costProvenance(g.acc),
+			billed: g.acc.billedRecords ? roundBilled(g.acc.billed) : null,
+			billed_records: g.acc.billedRecords,
+			charged_records: g.acc.chargedRecords,
 			cost_coverage: g.acc.tokens ? g.acc.pricedTokens / g.acc.tokens : 1,
 			share: Math.round((g.acc.tokens / total) * 10_000) / 10_000
 		}))

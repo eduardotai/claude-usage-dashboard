@@ -19,8 +19,9 @@ const AGENT_COLORS: Record<string, string> = {
 	codex: '#8fa67e', // sage
 	cursor: '#7c93a6', // dust
 	'grok-build': '#e0a458', // amber
-	'gemini-cli': '#a98499', // mauve
-	'grok-bot': '#9aa37e' // olive
+	'grok-bot': '#a98499', // mauve
+	'grok-apps': '#b9a582', // sand
+	'gemini-cli': '#9aa37e' // olive
 };
 
 export function agentColor(id: string): string {

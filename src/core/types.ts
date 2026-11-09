@@ -14,7 +14,7 @@ export type Provenance =
 	/** The agent does not record it, or we cannot price it. */
 	| 'unavailable';
 
-export type AgentId = 'claude-code' | 'codex' | 'cursor' | 'grok-build' | 'gemini-cli' | 'grok-bot';
+export type AgentId = 'claude-code' | 'codex' | 'cursor' | 'grok-build' | 'grok-bot' | 'grok-apps' | 'gemini-cli';
 
 /** One model call, normalized across agents. Tokens only; cost is applied later. */
 export interface RawUsageRecord {
@@ -47,6 +47,11 @@ export interface RawUsageRecord {
 	calls: number;
 	/** Cost the agent itself recorded at list price (USD), when it records one. */
 	reportedCostUsd?: number | null;
+	/**
+	 * What the provider actually charged for this record (USD), from a billing export.
+	 * Distinct from the API-equivalent estimate: subscription-included usage bills $0.
+	 */
+	billedUsd?: number | null;
 }
 
 /** A record after pricing has been applied. */
@@ -79,6 +84,11 @@ export interface Adapter {
 	/** Directories this adapter reads (after env overrides). */
 	dataPaths(): string[];
 	load(): Promise<AdapterResult>;
+	/**
+	 * Optional step after loading, with the price table: lets an adapter choose a pricing
+	 * basis from its own data (e.g. Grok Bot, which logs no model). Returns extra warnings.
+	 */
+	finalize?(records: RawUsageRecord[], prices: import('../pricing/litellm.js').PriceBook): string[];
 }
 
 export interface AdapterResult {

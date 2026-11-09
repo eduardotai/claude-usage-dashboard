@@ -9,6 +9,8 @@
  *   cursor/        Cursor usage CSV export (latest header)
  *   cursor-user/   Cursor local state.vscdb with best-effort (mostly zero) token counts
  *                  (only when this Node has node:sqlite)
+ *   grok/export/   grok.com unified usage export: Grok Bot + Grok apps, a few on-demand charges
+ *                  (fake email / principal id)
  * Fictional projects only.
  *
  *   node scripts/generate-demo-logs.mjs --out ./sample-logs
@@ -306,11 +308,54 @@ if (sqlite) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// grok.com unified usage export (X Subscription). Token buckets are disjoint; on-demand rows
+// are charged at xAI's grok-4.7 list price, like real exports.
+const gp = table['xai/grok-4.7'] ?? { input_cost_per_token: 2e-6, output_cost_per_token: 6e-6, cache_read_input_token_cost: 5e-7 };
+const gq = (s) => '"' + s.replace(/"/g, '""') + '"';
+const gHeader = 'Billing Item ID,Event Time,Product,Charge Category,Usage Type,Principal Type,Principal ID,Usage,Pricing Currency,Pricing Contracted,Model,User Email';
+const gRows = [gHeader];
+let grokBotRows = 0;
+let onDemand = 0;
+const PRINCIPAL = '00000000-0000-4000-8000-000000000000';
+for (let d = 0; d < Math.min(DAYS, 21); d++) {
+	if (rand() < 0.2) continue;
+	for (let k = 0; k < int(8, 30); k++) {
+		const ts = new Date(now - d * 86_400_000);
+		ts.setHours(int(7, 23), int(0, 59), int(0, 59), int(0, 999));
+		if (ts.getTime() > now) continue;
+		const prompt = rand() < 0.7 ? int(2, 200) : int(500, 6000);
+		const cached = int(20, 190) * 1000;
+		const write = int(0, 4000);
+		const completion = int(80, 2500);
+		const charged = d < 3 && rand() < 0.08;
+		const cost = charged ? prompt * gp.input_cost_per_token + cached * gp.cache_read_input_token_cost + write * gp.input_cost_per_token + completion * gp.output_cost_per_token : 0;
+		const usage = JSON.stringify({ 'cache-write-text-tokens': String(write), 'cached-prompt-text-tokens': String(cached), 'completion-text-tokens': String(completion), 'prompt-text-tokens': String(prompt) });
+		gRows.push([uuid(), ts.toISOString(), 'grok-bot', 'usage', charged ? 'on_demand' : 'included', 'user', PRINCIPAL, gq(usage), 'USD', cost.toFixed(10), '', 'demo@example.com'].join(','));
+		grokBotRows++;
+		if (charged) onDemand++;
+	}
+	if (rand() < 0.3) {
+		const ts = new Date(now - d * 86_400_000);
+		ts.setHours(int(8, 22), int(0, 59), 0, 0);
+		if (ts.getTime() <= now) {
+			const chat = rand() < 0.6;
+			const usage = chat
+				? JSON.stringify({ 'Cached prompt text tokens': String(int(0, 4000)), 'Completion text tokens': String(int(100, 1500)), 'Prompt text tokens': String(int(200, 3000)) })
+				: JSON.stringify({ 'Audio seconds': String(int(10, 90)) });
+			gRows.push([uuid(), ts.toISOString(), chat ? 'grok-chat' : 'grok-voice', 'usage', 'included', 'user', PRINCIPAL, gq(usage), 'USD', (0).toFixed(10), chat ? 'grok-4.7' : '', 'demo@example.com'].join(','));
+		}
+	}
+}
+mkdirSync(join(out, 'grok', 'export'), { recursive: true });
+writeFileSync(join(out, 'grok', 'export', 'usage-demo.csv'), gRows.join('\n') + '\n');
+
 console.log(`Wrote synthetic logs to ${out}:
   Claude Code  ${claudeCalls.toLocaleString()} calls (${lines.toLocaleString()} JSONL lines)
   Codex CLI    ${codexCalls.toLocaleString()} turns
   Grok Build   ${grokCalls.toLocaleString()} model calls
   Cursor       ${cursorCalls.toLocaleString()} CSV rows${sqlite ? ` + ${dbRequests} requests in a local state.vscdb` : ' (state.vscdb skipped: no node:sqlite)'}
+  Grok export  ${grokBotRows.toLocaleString()} Grok Bot rows (${onDemand} on-demand) + Grok apps
 
 Run:
   node dist/server/cli.js --offline \\
@@ -318,4 +363,5 @@ Run:
     --codex-home ${join(out, 'codex')} \\
     --grok-home ${join(out, 'grok')} \\
     --cursor-csv ${join(out, 'cursor')} \\
-    --cursor-dir ${join(out, 'cursor-user')}`);
+    --cursor-dir ${join(out, 'cursor-user')} \\
+    --grok-csv ${join(out, 'grok', 'export')}`);
