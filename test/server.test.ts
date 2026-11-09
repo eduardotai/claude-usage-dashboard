@@ -7,14 +7,14 @@ import { join } from 'node:path';
 import { createAdapters } from '../src/adapters/index.js';
 import { UsageStore } from '../src/core/store.js';
 import { createAppServer } from '../src/server.js';
-import { CLAUDE_FIXTURES, testBook } from './helpers.js';
+import { fixturesEnv, testBook } from './helpers.js';
 
 let server: Server;
 let base: string;
 beforeAll(async () => {
 	const ui = await mkdtemp(join(tmpdir(), 'ab-ui-'));
 	await writeFile(join(ui, 'index.html'), '<!doctype html><title>AgentBurn</title>');
-	const store = new UsageStore(createAdapters({ CLAUDE_LOGS_DIR: CLAUDE_FIXTURES }), testBook());
+	const store = new UsageStore(createAdapters(fixturesEnv()), testBook());
 	server = createAppServer({ store, uiDir: ui });
 	await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
 	base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -52,7 +52,7 @@ describe('HTTP API', () => {
 	it('meta exposes pricing source and agent coverage', async () => {
 		const { body } = await get('/api/meta');
 		expect(body.pricing.source).toBe('bundled');
-		expect(body.agents.map((a: any) => a.id)).toEqual(['claude-code', 'codex', 'cursor', 'gemini-cli']);
+		expect(body.agents.map((a: any) => a.id)).toEqual(['claude-code', 'codex', 'cursor', 'grok-build', 'grok-bot', 'grok-apps', 'gemini-cli']);
 	});
 
 	it('all stats endpoints respond', async () => {

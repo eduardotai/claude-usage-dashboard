@@ -101,7 +101,8 @@ export function parseClaudeLine(
 		cacheWriteTokens: cacheWrite,
 		cacheWrite1hTokens: Math.min(cacheWrite, n(usage.cache_creation?.ephemeral_1h_input_tokens)),
 		sidechain: obj.isSidechain === true || /[\\/]subagents[\\/]/.test(file),
-		tokens: 'measured'
+		tokens: 'measured',
+		calls: 1
 	};
 	const dedupeKey = msg.id && obj.requestId ? `${msg.id}:${obj.requestId}` : null;
 	return { record, dedupeKey };
@@ -163,6 +164,7 @@ export function createClaudeAdapter(env: NodeJS.ProcessEnv = process.env): Adapt
 		id: 'claude-code',
 		label: 'Claude Code',
 		status: 'available',
+		source: 'Session transcripts (JSONL), one entry per API response',
 		dataPaths: () => claudeLogRoots(env),
 		async load() {
 			const files: string[] = [];

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { AgentInfo } from '$lib/types';
+	import { agentColor } from '$lib/palette';
 
 	interface Props {
 		agents: AgentInfo[];
@@ -27,7 +28,7 @@
 					: `No ${a.label} logs found in ${a.data_paths.join(', ')}`}
 			onclick={() => onchange(value === a.id ? null : a.id)}
 		>
-			<span class="dot" class:live={a.detected} aria-hidden="true"></span>
+			<span class="dot" class:live={a.detected} style="--agent: {agentColor(a.id)}" aria-hidden="true"></span>
 			{a.label}
 			{#if planned}<span class="soon">soon</span>{/if}
 		</button>
@@ -93,8 +94,8 @@
 		background: var(--color-ink-600);
 	}
 	.dot.live {
-		background: var(--color-clay);
-		box-shadow: 0 0 8px rgba(217, 119, 87, 0.7);
+		background: var(--agent);
+		box-shadow: 0 0 8px color-mix(in srgb, var(--agent) 70%, transparent);
 	}
 	.soon {
 		font-family: var(--font-mono);

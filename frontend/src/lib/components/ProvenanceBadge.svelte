@@ -9,7 +9,7 @@
 	let { kind, title }: Props = $props();
 
 	const EXPLAIN: Record<Provenance, string> = {
-		measured: 'Measured: read directly from the agent’s own local logs.',
+		measured: 'Measured: read directly from the agent’s own logs or your usage export.',
 		estimated: 'Estimated: computed by AgentBurn from measured tokens × public API prices (LiteLLM). Not your bill.',
 		unavailable: 'Unavailable: the agent does not record this, or the model has no public price.'
 	};

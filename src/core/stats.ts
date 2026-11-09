@@ -30,28 +30,53 @@ export function applyFilters(records: UsageRecord[], f: Filters): UsageRecord[] 
 
 /** Costs keep 4 decimals so sub-cent usage is not shown as $0.00; the UI formats. */
 const roundCost = (v: number) => Math.round(v * 10_000) / 10_000;
+/** Billed amounts are real money: keep micro-dollars. */
+const roundBilled = (v: number) => Math.round(v * 1_000_000) / 1_000_000;
 
 interface CostAcc {
 	cost: number;
 	pricedTokens: number;
 	tokens: number;
+	estimated: boolean;
+	measured: boolean;
+	calls: number;
+	measuredCalls: number;
+	/** Actual charges from billing exports. */
+	billed: number;
+	billedRecords: number;
+	chargedRecords: number;
 }
+const newAcc = (): CostAcc => ({ cost: 0, pricedTokens: 0, tokens: 0, estimated: false, measured: false, calls: 0, measuredCalls: 0, billed: 0, billedRecords: 0, chargedRecords: 0 });
 function addCost(acc: CostAcc, r: UsageRecord) {
 	const t = totalTokens(r);
 	acc.tokens += t;
+	acc.calls += r.calls;
+	if (r.tokens === 'measured') acc.measuredCalls += r.calls;
+	if (typeof r.billedUsd === 'number') {
+		acc.billed += r.billedUsd;
+		acc.billedRecords++;
+		if (r.billedUsd > 0) acc.chargedRecords++;
+	}
 	if (r.costEst !== null) {
 		acc.cost += r.costEst;
 		acc.pricedTokens += t;
+		if (r.cost === 'measured') acc.measured = true;
+		else acc.estimated = true;
 	}
 }
-/** Cost provenance for an aggregate: estimated if anything was priced, else unavailable. */
+/**
+ * Cost provenance for an aggregate: `estimated` as soon as any part is estimated,
+ * `measured` only when every priced record carried its own recorded cost.
+ */
 function costProvenance(acc: CostAcc): Provenance {
-	return acc.pricedTokens > 0 ? 'estimated' : 'unavailable';
+	return acc.estimated ? 'estimated' : acc.measured ? 'measured' : 'unavailable';
 }
+/** Share of calls (0..1) whose token counts are on disk. 1 when there are no calls. */
+const tokenCoverage = (acc: CostAcc) => (acc.calls ? acc.measuredCalls / acc.calls : 1);
 
 export function summary(records: UsageRecord[]) {
 	const breakdown = { input: 0, output: 0, cache_creation: 0, cache_read: 0 };
-	const acc: CostAcc = { cost: 0, pricedTokens: 0, tokens: 0 };
+	const acc = newAcc();
 	const sessions = new Set<string>();
 	const projects = new Set<string>();
 	const models = new Set<string>();
@@ -72,7 +97,7 @@ export function summary(records: UsageRecord[]) {
 		agents.add(r.agent);
 		days.add(localISODate(r.timestamp));
 		if (r.sidechain) sidechain++;
-		if (r.costEst === null) {
+		if (r.costEst === null && r.tokens === 'measured') {
 			const u = unpriced.get(r.model) ?? { model: r.model, agent: r.agent, tokens: 0, messages: 0 };
 			u.tokens += totalTokens(r);
 			u.messages++;
@@ -85,10 +110,23 @@ export function summary(records: UsageRecord[]) {
 		total_tokens: total,
 		breakdown,
 		estimated_cost: roundCost(acc.cost),
+		/**
+		 * What was actually charged, from billing exports (grok.com). null when no record comes
+		 * from a bill. Plan-included usage bills $0, so this is NOT comparable to estimated_cost.
+		 */
+		billed_cost: acc.billedRecords ? roundBilled(acc.billed) : null,
+		billed_records: acc.billedRecords,
+		/** Billed records with a nonzero charge (e.g. on-demand usage beyond the plan). */
+		charged_records: acc.chargedRecords,
 		/** Share of tokens (0..1) that could be priced. 1 when there is no usage. */
 		cost_coverage: total ? acc.pricedTokens / total : 1,
 		unpriced_models: [...unpriced.values()].sort((a, b) => b.tokens - a.tokens),
 		total_messages: records.length,
+		/** Model calls / requests. Some records stand for several calls (e.g. a Grok Build turn). */
+		total_calls: acc.calls,
+		/** Calls whose tokens are not recorded anywhere on disk (counted, but 0 tokens shown). */
+		unmeasured_calls: acc.calls - acc.measuredCalls,
+		token_coverage: tokenCoverage(acc),
 		sidechain_messages: sidechain,
 		total_sessions: sessions.size,
 		total_projects: projects.size,
@@ -98,7 +136,7 @@ export function summary(records: UsageRecord[]) {
 		avg_tokens_per_active_day: days.size ? Math.round(total / days.size) : 0,
 		first_date: sortedDays[0] ?? null,
 		last_date: sortedDays[sortedDays.length - 1] ?? null,
-		provenance: { tokens: records.length ? 'measured' : 'unavailable', cost: costProvenance(acc) } as {
+		provenance: { tokens: acc.measuredCalls ? 'measured' : 'unavailable', cost: costProvenance(acc) } as {
 			tokens: Provenance;
 			cost: Provenance;
 		}
@@ -124,26 +162,38 @@ export function daily(records: UsageRecord[], f: Filters & { days?: number | nul
 			start = min && min < end ? min : end;
 		}
 	}
-	const buckets = new Map<string, { tokens: number; input: number; output: number; cache: number; cost: number }>();
+	type Slice = { tokens: number; cost: number; calls: number };
+	type Bucket = { tokens: number; input: number; output: number; cache: number; cost: number; calls: number; by_agent: Record<string, Slice> };
+	const empty = (): Bucket => ({ tokens: 0, input: 0, output: 0, cache: 0, cost: 0, calls: 0, by_agent: {} });
+	const buckets = new Map<string, Bucket>();
+	const agentsSeen = new Set<string>();
 	for (const r of records) {
 		const d = localISODate(r.timestamp);
 		if (d < start || d > end) continue;
-		const b = buckets.get(d) ?? { tokens: 0, input: 0, output: 0, cache: 0, cost: 0 };
-		b.tokens += totalTokens(r);
+		const b = buckets.get(d) ?? empty();
+		const t = totalTokens(r);
+		b.tokens += t;
 		b.input += r.inputTokens;
 		b.output += r.outputTokens;
 		b.cache += r.cacheReadTokens + r.cacheWriteTokens;
 		b.cost += r.costEst ?? 0;
+		b.calls += r.calls;
+		const a = (b.by_agent[r.agent] ??= { tokens: 0, cost: 0, calls: 0 });
+		a.tokens += t;
+		a.cost += r.costEst ?? 0;
+		a.calls += r.calls;
+		agentsSeen.add(r.agent);
 		buckets.set(d, b);
 	}
 	const span = Math.max(daySpan(start, end), 0);
 	const series = [];
 	for (let i = 0; i < span; i++) {
 		const date = addDays(start, i);
-		const b = buckets.get(date) ?? { tokens: 0, input: 0, output: 0, cache: 0, cost: 0 };
-		series.push({ date, ...b, cost: roundCost(b.cost) });
+		const b = buckets.get(date) ?? empty();
+		const by_agent = Object.fromEntries(Object.entries(b.by_agent).map(([k, v]) => [k, { ...v, cost: roundCost(v.cost) }]));
+		series.push({ date, ...b, cost: roundCost(b.cost), by_agent });
 	}
-	return { start, end, daily: series };
+	return { start, end, agents: [...agentsSeen].sort(), daily: series };
 }
 
 function groupBy(records: UsageRecord[], key: (r: UsageRecord) => string) {
@@ -151,7 +201,7 @@ function groupBy(records: UsageRecord[], key: (r: UsageRecord) => string) {
 	for (const r of records) {
 		const k = key(r);
 		let g = groups.get(k);
-		if (!g) groups.set(k, (g = { acc: { cost: 0, pricedTokens: 0, tokens: 0 }, messages: 0, sessions: new Set(), agents: new Set() }));
+		if (!g) groups.set(k, (g = { acc: newAcc(), messages: 0, sessions: new Set(), agents: new Set() }));
 		addCost(g.acc, r);
 		g.messages++;
 		g.sessions.add(`${r.agent}:${r.session}`);
@@ -163,10 +213,16 @@ function groupBy(records: UsageRecord[], key: (r: UsageRecord) => string) {
 			key: k,
 			tokens: g.acc.tokens,
 			messages: g.messages,
+			calls: g.acc.calls,
+			unmeasured_calls: g.acc.calls - g.acc.measuredCalls,
+			token_coverage: tokenCoverage(g.acc),
 			sessions: g.sessions.size,
 			agents: [...g.agents].sort(),
 			cost: g.acc.pricedTokens > 0 ? roundCost(g.acc.cost) : null,
 			cost_provenance: costProvenance(g.acc),
+			billed: g.acc.billedRecords ? roundBilled(g.acc.billed) : null,
+			billed_records: g.acc.billedRecords,
+			charged_records: g.acc.chargedRecords,
 			cost_coverage: g.acc.tokens ? g.acc.pricedTokens / g.acc.tokens : 1,
 			share: Math.round((g.acc.tokens / total) * 10_000) / 10_000
 		}))
@@ -195,7 +251,7 @@ export function heatmap(records: UsageRecord[], days = 365, today = localISODate
 		if (d < start || d > today) continue;
 		const b = buckets.get(d) ?? { tokens: 0, count: 0, cost: 0 };
 		b.tokens += totalTokens(r);
-		b.count++;
+		b.count += r.calls;
 		b.cost += r.costEst ?? 0;
 		buckets.set(d, b);
 	}

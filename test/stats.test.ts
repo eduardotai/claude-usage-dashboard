@@ -3,12 +3,12 @@ import { createAdapters } from '../src/adapters/index.js';
 import { UsageStore } from '../src/core/store.js';
 import * as stats from '../src/core/stats.js';
 import type { UsageRecord } from '../src/core/types.js';
-import { CLAUDE_FIXTURES, testBook } from './helpers.js';
+import { fixturesEnv, testBook } from './helpers.js';
 
 let records: UsageRecord[];
 let store: UsageStore;
 beforeAll(async () => {
-	store = new UsageStore(createAdapters({ CLAUDE_LOGS_DIR: CLAUDE_FIXTURES }), testBook());
+	store = new UsageStore(createAdapters(fixturesEnv()), testBook());
 	records = await store.all();
 });
 
@@ -61,6 +61,45 @@ describe('aggregations', () => {
 	it('reports per-agent statuses including planned adapters', () => {
 		const st = store.agentStatuses();
 		expect(st.find((a) => a.id === 'claude-code')).toMatchObject({ status: 'available', detected: true });
-		expect(st.find((a) => a.id === 'codex')).toMatchObject({ status: 'planned', detected: false });
+		expect(st.find((a) => a.id === 'codex')).toMatchObject({ status: 'available', detected: false });
+		expect(st.find((a) => a.id === 'gemini-cli')).toMatchObject({ status: 'planned', detected: false });
+		expect(st.find((a) => a.id === 'grok-bot')).toMatchObject({ status: 'available', detected: false });
+		expect(st.find((a) => a.id === 'grok-bot')!.note).toMatch(/cloud/);
+	});
+});
+
+describe('multi-agent aggregations', () => {
+	let all: UsageRecord[];
+	beforeAll(async () => {
+		const { CODEX_HOME_FIXTURE, GROK_HOME_FIXTURE, CURSOR_FIXTURES } = await import('./helpers.js');
+		const { join } = await import('node:path');
+		const env = fixturesEnv({ CODEX_HOME: CODEX_HOME_FIXTURE, GROK_HOME: GROK_HOME_FIXTURE, AGENTBURN_IMPORTS_DIR: join(CURSOR_FIXTURES, 'imports') });
+		all = await new UsageStore(createAdapters(env), testBook()).all();
+	});
+
+	it('daily points break tokens, cost and calls down by agent', () => {
+		const d = stats.daily(all, { start: '2026-11-03', end: '2026-11-05' });
+		expect(d.agents).toEqual(['claude-code', 'codex', 'cursor', 'grok-build']);
+		const nov3 = d.daily[0]!;
+		const sum = Object.values(nov3.by_agent).reduce((s, a) => s + a.tokens, 0);
+		expect(sum).toBe(nov3.tokens);
+		expect(Object.keys(nov3.by_agent).sort()).toEqual(['claude-code', 'codex', 'grok-build']);
+		expect(nov3.by_agent['grok-build']!.calls).toBe(6);
+	});
+
+	it('counts calls separately from records and reports token coverage', () => {
+		const s = stats.summary(all);
+		expect(s.total_agents).toBe(4);
+		expect(s.total_calls).toBeGreaterThan(s.total_messages); // Grok turns aggregate several calls
+		expect(s.unmeasured_calls).toBe(1); // the errored Cursor row
+		const cursor = stats.agents(all).agents.find((a) => a.agent === 'cursor')!;
+		expect(cursor.unmeasured_calls).toBe(1);
+		expect(cursor.token_coverage).toBeCloseTo(4 / 5, 10);
+	});
+
+	it('filters every aggregation by agent', () => {
+		const codexOnly = stats.applyFilters(all, { agent: 'codex' });
+		expect(new Set(codexOnly.map((r) => r.agent))).toEqual(new Set(['codex']));
+		expect(stats.projects(codexOnly).projects.map((p) => p.project).sort()).toEqual(['api-server', 'web-app']);
 	});
 });

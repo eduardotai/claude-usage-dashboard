@@ -13,3 +13,8 @@ sample-logs/
 # Editor
 .idea/
 .vscode/
+
+# Personal usage exports: never commit
+*unified-usage*.csv
+/imports/
+/agentburn-private/

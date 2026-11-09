@@ -17,9 +17,19 @@ export interface Summary {
 		cache_read: number;
 	};
 	estimated_cost: number;
+	/** Actually charged per billing exports (USD); null when no data comes from a bill. */
+	billed_cost: number | null;
+	billed_records: number;
+	charged_records: number;
 	cost_coverage: number;
 	unpriced_models: UnpricedModel[];
 	total_messages: number;
+	/** Model calls / requests; a record can stand for several calls. */
+	total_calls: number;
+	/** Calls whose tokens are not recorded on disk (counted, never shown as 0 tokens). */
+	unmeasured_calls: number;
+	/** Share of calls with measured tokens (0..1). */
+	token_coverage: number;
 	sidechain_messages: number;
 	total_sessions: number;
 	total_projects: number;
@@ -40,20 +50,30 @@ export interface DailyPoint {
 	output: number;
 	cache: number;
 	cost: number;
+	calls: number;
+	by_agent: Record<string, { tokens: number; cost: number; calls: number }>;
 }
 
 export interface DailyResponse {
 	start: string;
 	end: string;
+	/** Agents with usage in the window, for the stacked chart. */
+	agents: string[];
 	daily: DailyPoint[];
 }
 
 interface Costed {
 	tokens: number;
 	messages: number;
+	calls: number;
+	unmeasured_calls: number;
+	token_coverage: number;
 	cost: number | null;
 	cost_provenance: Provenance;
 	cost_coverage: number;
+	billed: number | null;
+	billed_records: number;
+	charged_records: number;
 	share: number;
 	agents: string[];
 }
@@ -81,13 +101,39 @@ export interface HeatmapResponse {
 	cells: HeatmapCell[];
 }
 
+export interface ScanStats {
+	files: number;
+	lines: number;
+	records: number;
+	duplicatesDropped: number;
+	malformedLines: number;
+	sidechainRecords: number;
+	skippedFiles: number;
+}
+
 export interface AgentInfo {
 	id: string;
 	label: string;
 	status: 'available' | 'planned';
+	source: string;
+	note: string | null;
+	warnings: string[];
 	detected: boolean;
 	data_paths: string[];
-	usage: { tokens: number; messages: number; cost: number | null } | null;
+	scan: ScanStats | null;
+	usage: {
+		tokens: number;
+		messages: number;
+		calls: number;
+		unmeasured_calls: number;
+		token_coverage: number;
+		sessions: number;
+		cost: number | null;
+		cost_provenance: Provenance;
+		billed: number | null;
+		billed_records: number;
+		charged_records: number;
+	} | null;
 }
 
 export interface Meta {
