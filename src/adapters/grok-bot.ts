@@ -49,26 +49,43 @@ export function unifiedRowToRecord(row: GrokUnifiedRow, agent: AgentId, project:
 }
 
 /**
- * Which xAI price card reproduces every billed row? Returns the chosen key (or null) and all
- * keys with that same card.
+ * Which xAI list price reproduces every billed row?
+ *
+ * 1. Candidates: xAI price-table entries whose cost equals the charge on every on-demand row.
+ * 2. Candidates are grouped by the cost they give EVERY row of the export (not by their raw
+ *    price-table fields): LiteLLM entries for the same rate often differ in fields that don't
+ *    apply here (batch, image or audio prices), and the price table varies by source (live
+ *    download vs bundled snapshot). Grouping on effect makes the answer the same whichever
+ *    table is loaded, as long as it has the rate.
+ * 3. One group: the rate is unambiguous, use it (named by its simplest key, listing the rest).
+ *    Several groups (e.g. same base price, different long-context price, and the export has
+ *    >200k prompts): genuinely ambiguous, keep the estimate unavailable.
  */
 export function matchBilledRate(records: RawUsageRecord[], prices: PriceBook): { key: string | null; matches: string[]; billed: number; reason?: string } {
 	const billed = records.filter((r) => r.tokens === 'measured' && typeof r.billedUsd === 'number' && r.billedUsd > 0);
 	if (!billed.length) return { key: null, matches: [], billed: 0, reason: 'no on-demand charges in the export' };
-	const cards = new Map<string, string[]>();
-	for (const key of prices.keys()) {
-		if (!key.startsWith('xai/')) continue;
-		const ok = billed.every((r) => {
-			const c = prices.cost({ ...r, model: key });
-			return c !== null && Math.abs(c - r.billedUsd!) <= Math.max(1e-6, r.billedUsd! * 0.005);
-		});
-		if (!ok) continue;
-		const entry = prices.resolve(key)!.entry;
-		const card = JSON.stringify(Object.entries(entry).filter(([k]) => k.includes('cost')).sort());
-		cards.set(card, [...(cards.get(card) ?? []), key]);
+	const candidates = prices.keys().filter(
+		(key) =>
+			key.startsWith('xai/') &&
+			billed.every((r) => {
+				const c = prices.cost({ ...r, model: key });
+				return c !== null && Math.abs(c - r.billedUsd!) <= Math.max(1e-6, r.billedUsd! * 0.005);
+			})
+	);
+	const groups = new Map<string, string[]>();
+	for (const key of candidates) {
+		const effect = records.map((r) => Math.round((prices.cost({ ...r, model: key }) ?? -1) * 1e9)).join(',');
+		groups.set(effect, [...(groups.get(effect) ?? []), key]);
 	}
-	if (cards.size !== 1) return { key: null, matches: [...cards.values()].flat(), billed: billed.length, reason: cards.size ? 'charges match several different xAI rates' : 'charges match no xAI list price' };
-	const matches = [...cards.values()][0]!.sort((a, b) => a.length - b.length || b.localeCompare(a, 'en', { numeric: true }));
+	const byName = (a: string, b: string) => a.length - b.length || b.localeCompare(a, 'en', { numeric: true });
+	if (groups.size !== 1)
+		return {
+			key: null,
+			matches: candidates.sort(byName),
+			billed: billed.length,
+			reason: groups.size ? 'the charges fit xAI rates that would price this export differently' : 'the charges match no xAI list price'
+		};
+	const matches = [...groups.values()][0]!.sort(byName);
 	return { key: matches[0]!, matches, billed: billed.length };
 }
 

@@ -2,7 +2,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createAdapters } from '../src/adapters/index.js';
 import { createCursorAdapter } from '../src/adapters/cursor.js';
-import { GROK_BOT_MODEL, createGrokAppsAdapter, createGrokBotAdapter } from '../src/adapters/grok-bot.js';
+import { GROK_BOT_MODEL, createGrokAppsAdapter, createGrokBotAdapter, matchBilledRate, unifiedRowToRecord } from '../src/adapters/grok-bot.js';
+import { PriceBook } from '../src/pricing/litellm.js';
 import { loadGrokUnified } from '../src/adapters/grok-unified.js';
 import { UsageStore } from '../src/core/store.js';
 import * as stats from '../src/core/stats.js';
@@ -97,5 +98,51 @@ describe('registry', () => {
 		const ids = createAdapters(env).map((a) => [a.id, a.status]);
 		expect(ids).toContainEqual(['grok-bot', 'available']);
 		expect(ids).toContainEqual(['grok-apps', 'available']);
+	});
+});
+
+describe('Grok Bot rate matching is independent of the price table', () => {
+	const base = { litellm_provider: 'xai', input_cost_per_token: 2e-6, output_cost_per_token: 6e-6, cache_read_input_token_cost: 0.5e-6 };
+	const long = { input_cost_per_token_above_200k_tokens: 4e-6, output_cost_per_token_above_200k_tokens: 12e-6, cache_read_input_token_cost_above_200k_tokens: 1e-6 };
+	const book = (table: Record<string, object>) => new PriceBook(table as never, { source: 'live', fetchedAt: null, models: Object.keys(table).length, url: 'test' });
+	const run = async (table: Record<string, object>) => {
+		const store = new UsageStore([createGrokBotAdapter(env, opts)], book(table));
+		const recs = await store.all();
+		return { recs, warning: store.agentStatuses()[0]!.warnings.join(' ') };
+	};
+
+	it('treats models whose entries differ only in unused fields (batch, image) as one rate', async () => {
+		// Shaped like the live LiteLLM list: grok-4.7 carries batch prices grok-4.6 lacks.
+		const live = {
+			'xai/grok-4.6': { ...base, ...long, input_cost_per_image_token: 2e-6 },
+			'xai/grok-4.7': { ...base, ...long, input_cost_per_image_token: 2e-6, input_cost_per_token_batches: 1.6e-6, output_cost_per_token_batches: 4.8e-6, cache_read_input_token_cost_batches: 0.4e-6 },
+			'xai/grok-4.7-latest': { ...base, ...long },
+			'xai/grok-4.5': { ...base, cache_read_input_token_cost: 0.2e-6 } // different rate: no match
+		};
+		const snapshot = { 'xai/grok-4.6': { ...base, ...long }, 'xai/grok-4.7': { ...base, ...long } };
+		const a = await run(live);
+		const b = await run(snapshot);
+		expect(a.recs.every((r) => r.pricingModel === 'xai/grok-4.7' && r.cost === 'estimated')).toBe(true);
+		expect(a.warning).toMatch(/xai\/grok-4\.7 list prices \(same rate as xai\/grok-4\.6, xai\/grok-4\.7-latest\)/);
+		// Same estimate whichever table is loaded.
+		expect(a.recs.map((r) => r.costEst)).toEqual(b.recs.map((r) => r.costEst));
+	});
+
+	it('ignores rate differences that no row in the export reaches', async () => {
+		// Long-context prices differ, but every fixture prompt is under 200k tokens.
+		const { recs } = await run({ 'xai/grok-4.6': { ...base, ...long }, 'xai/grok-x': { ...base } });
+		expect(recs.every((r) => r.cost === 'estimated')).toBe(true);
+	});
+
+	it('stays unavailable when matching rates would price the export differently', async () => {
+		// A row above 200k tokens makes the long-context price matter.
+		const big = [{ ...unifiedRowToRecord({ id: 'x', timestamp: 1, product: 'grok-bot', usageType: 'included', model: '', tokens: { input: 10, cacheRead: 250_000, cacheWrite: 0, output: 10 }, units: {}, billedUsd: 0 }, 'grok-bot', 'p') }];
+		const charged = [
+			unifiedRowToRecord({ id: 'y', timestamp: 2, product: 'grok-bot', usageType: 'on_demand', model: '', tokens: { input: 3, cacheRead: 60000, cacheWrite: 6000, output: 100 }, units: {}, billedUsd: 0.042606 }, 'grok-bot', 'p')
+		];
+		const m = matchBilledRate([...big, ...charged], book({ 'xai/grok-4.6': { ...base, ...long }, 'xai/grok-x': { ...base } }));
+		expect(m.key).toBeNull();
+		expect(m.reason).toMatch(/price this export differently/);
+		expect(m.matches).toEqual(['xai/grok-x', 'xai/grok-4.6']);
 	});
 });

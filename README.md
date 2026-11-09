@@ -159,9 +159,13 @@ What we verified on a real export (Nov 2026, ~4.2k rows):
   on-demand charges.
 - **Est. API cost** (*estimated*) is what the same tokens would cost at API list prices, as
   for every other agent. Grok Bot rows have no model, so AgentBurn checks which xAI list
-  price reproduces **every** on-demand charge in your export. If exactly one rate card does,
-  Grok Bot is estimated at it, and the card names the rate it used. With no on-demand
-  charges, or ambiguous ones, the Grok Bot estimate stays *unavailable*. Prompts over 200k
+  price reproduces **every** on-demand charge in your export. Matching models are compared
+  by what they would charge for each row of your export, not by their raw price-table
+  entries, so the result is the same with the live LiteLLM list or the bundled snapshot.
+  Several models with the same effective rate (e.g. `grok-4.6` and `grok-4.7`) count as one
+  rate, and the card names them. If no rate matches, or the matching rates would price your
+  rows differently (for example different long-context prices when you have prompts over
+  200k), the Grok Bot estimate stays *unavailable*. Prompts over 200k
   tokens use LiteLLM's long-context rates; the export's on-demand rows didn't cover that
   case.
 
