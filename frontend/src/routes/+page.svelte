@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fetchDashboard, refreshLogs } from '$lib/api';
 	import type { DashboardData } from '$lib/types';
-	import { compact, grouped, full, money, longDate, relativeTime } from '$lib/format';
+	import { compact, grouped, full, money, longDate, pct, relativeTime } from '$lib/format';
 	import { rangeToDates, RANGE_NOUN, type RangeKey } from '$lib/ranges';
 
 	import KpiCard from '$lib/components/KpiCard.svelte';
@@ -12,6 +12,8 @@
 	import ProjectList from '$lib/components/ProjectList.svelte';
 	import RefreshButton from '$lib/components/RefreshButton.svelte';
 	import RangeSelector from '$lib/components/RangeSelector.svelte';
+	import AgentSelector from '$lib/components/AgentSelector.svelte';
+	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 
 	let data = $state<DashboardData | null>(null);
 	let error = $state<string | null>(null);
@@ -20,13 +22,26 @@
 
 	let range = $state<RangeKey>('30d');
 	let project = $state<string | null>(null);
+	let agent = $state<string | null>(null);
+	let metric = $state<'tokens' | 'cost'>('tokens');
+
+	const agentLabel = $derived(data?.agents.find((a) => a.id === agent)?.label ?? null);
+	const scopeNote = $derived([agentLabel, project].filter(Boolean).join(' · '));
+	const hasData = $derived((data?.agents ?? []).some((a) => a.detected));
+
+	const PRICING_SOURCE: Record<string, string> = {
+		live: 'downloaded just now',
+		cache: 'cached today',
+		'stale-cache': 'cached copy (offline)',
+		bundled: 'bundled snapshot (offline)'
+	};
 
 	async function load(showOverlay = false) {
 		if (showOverlay) updating = true;
 		try {
 			error = null;
 			const { start, end } = rangeToDates(range);
-			data = await fetchDashboard({ start, end, project });
+			data = await fetchDashboard({ start, end, project, agent });
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load data';
 		} finally {
@@ -37,6 +52,12 @@
 	function setRange(key: RangeKey) {
 		if (key === range) return;
 		range = key;
+		load(true);
+	}
+
+	function setAgent(id: string | null) {
+		if (id === agent) return;
+		agent = id;
 		load(true);
 	}
 
@@ -66,22 +87,29 @@
 </script>
 
 <svelte:head>
-	<title>Claude Usage Dashboard</title>
+	<title>AgentBurn{scopeNote ? ` · ${scopeNote}` : ''}</title>
 </svelte:head>
 
 <main class="page">
 	<!-- Header -->
 	<header class="masthead rise">
 		<div class="brand">
-			<span class="mark" aria-hidden="true"></span>
+			<span class="mark" aria-hidden="true">
+				<svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+					<path
+						d="M12 2.5c.6 3.1 2.6 4.9 4.2 6.8 1.5 1.8 2.3 3.6 2.3 5.6A6.5 6.5 0 0 1 12 21.5a6.5 6.5 0 0 1-6.5-6.6c0-2.3 1.1-4.1 2.6-5.6.2 1.7 1 2.9 2.2 3.5-.3-3.7.6-7.4 1.7-10.3Z"
+						fill="rgba(255,240,228,0.92)"
+					/>
+				</svg>
+			</span>
 			<div>
-				<h1 class="serif title">Usage Observatory</h1>
-				<p class="tagline">Your Claude Code activity, parsed locally · nothing leaves this machine</p>
+				<h1 class="serif title">AgentBurn</h1>
+				<p class="tagline">What your AI coding agents burn, in tokens and API-equivalent dollars · parsed locally, nothing leaves this machine</p>
 			</div>
 		</div>
 		<div class="head-actions">
 			{#if data?.summary.generated_at}
-				<span class="stamp num">updated {relativeTime(data.summary.generated_at)}</span>
+				<span class="stamp num">scanned {relativeTime(data.summary.generated_at)}</span>
 			{/if}
 			<RefreshButton busy={refreshing} onrefresh={refresh} />
 		</div>
@@ -89,9 +117,9 @@
 
 	{#if error}
 		<div class="panel error rise">
-			<strong>Couldn't reach the backend.</strong>
+			<strong>Couldn't reach the AgentBurn server.</strong>
 			<span>{error}</span>
-			<span class="hint">Make sure the API is running: <code>uvicorn main:app --port 8000</code></span>
+			<span class="hint">Make sure it is running: <code>npx agentburn</code></span>
 			<button class="retry" onclick={() => load()}>Try again</button>
 		</div>
 	{:else if !data}
@@ -103,12 +131,13 @@
 		<div class="panel skel-wide"><div class="shimmer"></div></div>
 		<div class="loading-note num">Reading your logs…</div>
 	{:else}
-		<!-- Controls: range + active project filter -->
+		<!-- Controls: agent + range + active project filter -->
 		<div class="controls rise" style="animation-delay: 40ms">
+			<AgentSelector agents={data.agents} value={agent} onchange={setAgent} />
 			<RangeSelector value={range} onchange={setRange} />
 			{#if project}
 				<button class="chip" onclick={clearProject} title="Clear project filter">
-					<span class="chip-label">filtered</span>
+					<span class="chip-label">project</span>
 					<span class="chip-name">{project}</span>
 					<span class="chip-x" aria-hidden="true">✕</span>
 				</button>
@@ -118,90 +147,147 @@
 			{/if}
 		</div>
 
-		<div class="content" class:dim={updating}>
-			<!-- Hero -->
-			<section class="hero rise" style="animation-delay: 60ms">
-				<div class="hero-main panel">
-					<span class="eyebrow">
-						Total tokens · {RANGE_NOUN[range]}{project ? ` · ${project}` : ''}
-					</span>
-					<div class="hero-number num">{full(data.summary.total_tokens)}</div>
-					<div class="hero-break">
-						{#each [['Input', data.summary.breakdown.input], ['Output', data.summary.breakdown.output], ['Cache write', data.summary.breakdown.cache_creation], ['Cache read', data.summary.breakdown.cache_read]] as [label, val]}
-							<div class="break-item">
-								<span class="break-label">{label}</span>
-								<span class="break-val num">{compact(Number(val))}</span>
+		{#if !hasData}
+			<div class="panel onboarding rise" style="animation-delay: 60ms">
+				<span class="eyebrow">No agent logs found</span>
+				<h2 class="serif block-title">Nothing to burn yet</h2>
+				<p>AgentBurn looked in:</p>
+				<ul>
+					{#each data.agents.filter((a) => a.status === 'available') as a}
+						<li><strong>{a.label}</strong> <code>{a.data_paths.join(', ')}</code></li>
+					{/each}
+				</ul>
+				<p>Use an agent for a bit and hit refresh, or point AgentBurn at another folder: <code>npx agentburn --claude-dir /path/to/projects</code></p>
+			</div>
+		{/if}
+
+		{#if hasData}
+			<div class="content" class:dim={updating}>
+				<!-- Hero -->
+				<section class="hero rise" style="animation-delay: 60ms">
+					<div class="hero-main panel">
+						<div class="hero-head">
+							<span class="eyebrow">
+								Total tokens · {RANGE_NOUN[range]}{scopeNote ? ` · ${scopeNote}` : ''}
+							</span>
+							<ProvenanceBadge kind={data.summary.provenance.tokens} />
+						</div>
+						<div class="hero-number num">{full(data.summary.total_tokens)}</div>
+						<div class="hero-break">
+							{#each [['Input', data.summary.breakdown.input], ['Output', data.summary.breakdown.output], ['Cache write', data.summary.breakdown.cache_creation], ['Cache read', data.summary.breakdown.cache_read]] as [label, val]}
+								<div class="break-item">
+									<span class="break-label">{label}</span>
+									<span class="break-val num">{compact(Number(val))}</span>
+								</div>
+							{/each}
+						</div>
+						<p class="hero-foot">
+							{data.summary.first_date ? `${longDate(data.summary.first_date)} → ${longDate(data.summary.last_date)}` : 'No activity in range'}
+							· {data.summary.active_days} active days
+							{#if data.summary.sidechain_messages}
+								· {grouped(data.summary.sidechain_messages)} subagent calls included
+							{/if}
+						</p>
+					</div>
+				</section>
+
+				<!-- KPI row (range + project + agent aware) -->
+				<section class="kpis">
+					<KpiCard
+						label="Est. API cost"
+						value={data.summary.provenance.cost === 'unavailable' ? 'n/a' : money(data.summary.estimated_cost)}
+						sub={data.summary.cost_coverage < 1 && data.summary.total_tokens > 0
+							? `${pct(data.summary.cost_coverage)} of tokens priced · not your bill`
+							: 'at public API prices · not your bill'}
+						provenance={data.summary.provenance.cost}
+						accent
+						delay={120}
+					/>
+					<KpiCard label="Avg / active day" value={compact(data.summary.avg_tokens_per_active_day)} sub="tokens" delay={170} />
+					<KpiCard label="Model calls" value={grouped(data.summary.total_messages)} sub="{grouped(data.summary.total_sessions)} sessions" delay={220} />
+					<KpiCard label="Projects" value={grouped(data.summary.total_projects)} sub="{data.summary.total_models} models used" delay={270} />
+				</section>
+
+				{#if data.summary.unpriced_models.length}
+					<aside class="panel notice rise" style="animation-delay: 160ms">
+						<ProvenanceBadge kind="unavailable" />
+						<p>
+							<strong>{data.summary.unpriced_models.length === 1 ? '1 model has' : `${data.summary.unpriced_models.length} models have`} no public price</strong>
+							and {data.summary.unpriced_models.length === 1 ? 'is' : 'are'} left out of the cost estimate instead of being counted as $0:
+							{#each data.summary.unpriced_models.slice(0, 4) as m, i}
+								{i ? ', ' : ''}<code>{m.model}</code> <span class="muted">({compact(m.tokens)} tokens)</span>
+							{/each}{data.summary.unpriced_models.length > 4 ? ', …' : ''}
+						</p>
+					</aside>
+				{/if}
+
+				<!-- Daily chart -->
+				<section class="panel block rise" style="animation-delay: 200ms">
+					<div class="block-head">
+						<div>
+							<span class="eyebrow">{RANGE_NOUN[range]}</span>
+							<h2 class="serif block-title">Daily burn</h2>
+						</div>
+						<div class="toggle" role="tablist" aria-label="Chart metric">
+							<button role="tab" aria-selected={metric === 'tokens'} class:active={metric === 'tokens'} onclick={() => (metric = 'tokens')}>Tokens</button>
+							<button role="tab" aria-selected={metric === 'cost'} class:active={metric === 'cost'} onclick={() => (metric = 'cost')}>Est. cost</button>
+						</div>
+					</div>
+					<DailyChart data={data.daily.daily} {metric} />
+				</section>
+
+				<!-- Models + Projects -->
+				<section class="split">
+					<div class="panel block rise" style="animation-delay: 260ms">
+						<div class="block-head">
+							<div>
+								<span class="eyebrow">Distribution · est. cost</span>
+								<h2 class="serif block-title">By model</h2>
 							</div>
-						{/each}
+						</div>
+						{#if data.models.length}
+							<ModelDonut models={data.models} />
+						{:else}
+							<p class="empty">No usage in this range.</p>
+						{/if}
 					</div>
-					<p class="hero-foot">
-						{data.summary.first_date ? `${longDate(data.summary.first_date)} → ${longDate(data.summary.last_date)}` : 'No activity in range'}
-						· {data.summary.active_days} active days
-					</p>
-				</div>
-			</section>
 
-			<!-- KPI row (range + project aware) -->
-			<section class="kpis">
-				<KpiCard label="Estimated cost" value={money(data.summary.estimated_cost)} sub="API-equivalent, not a bill" accent delay={120} />
-				<KpiCard label="Avg / active day" value={compact(data.summary.avg_tokens_per_active_day)} sub="tokens" delay={170} />
-				<KpiCard label="Messages" value={grouped(data.summary.total_messages)} sub="{data.summary.total_sessions} sessions" delay={220} />
-				<KpiCard label="Projects" value={grouped(data.summary.total_projects)} sub="{data.summary.total_models} models used" delay={270} />
-			</section>
-
-			<!-- Daily chart -->
-			<section class="panel block rise" style="animation-delay: 200ms">
-				<div class="block-head">
-					<div>
-						<span class="eyebrow">{RANGE_NOUN[range]}</span>
-						<h2 class="serif block-title">Daily consumption</h2>
+					<div class="panel block rise" style="animation-delay: 320ms">
+						<div class="block-head">
+							<div>
+								<span class="eyebrow">Click to filter</span>
+								<h2 class="serif block-title">Top projects</h2>
+							</div>
+						</div>
+						{#if data.projects.length}
+							<ProjectList projects={data.projects} selected={project} onselect={selectProject} />
+						{:else}
+							<p class="empty">No projects in this range.</p>
+						{/if}
 					</div>
-				</div>
-				<DailyChart data={data.daily.daily} />
-			</section>
+				</section>
 
-			<!-- Models + Projects -->
-			<section class="split">
-				<div class="panel block rise" style="animation-delay: 260ms">
+				<!-- Heatmap -->
+				<section class="panel block rise" style="animation-delay: 380ms">
 					<div class="block-head">
 						<div>
-							<span class="eyebrow">Distribution · est. cost</span>
-							<h2 class="serif block-title">By model</h2>
+							<span class="eyebrow">Activity · trailing year{scopeNote ? ` · ${scopeNote}` : ''}</span>
+							<h2 class="serif block-title">The last year</h2>
 						</div>
 					</div>
-					{#if data.models.length}
-						<ModelDonut models={data.models} />
-					{:else}
-						<p class="empty">No usage in this range.</p>
-					{/if}
-				</div>
+					<Heatmap data={data.heatmap} />
+				</section>
 
-				<div class="panel block rise" style="animation-delay: 320ms">
-					<div class="block-head">
-						<div>
-							<span class="eyebrow">Click to filter</span>
-							<h2 class="serif block-title">Top projects</h2>
-						</div>
-					</div>
-					<ProjectList projects={data.projects} selected={project} onselect={selectProject} />
-				</div>
-			</section>
-
-			<!-- Heatmap -->
-			<section class="panel block rise" style="animation-delay: 380ms">
-				<div class="block-head">
-					<div>
-						<span class="eyebrow">Activity · trailing year{project ? ` · ${project}` : ''}</span>
-						<h2 class="serif block-title">The last year</h2>
-					</div>
-				</div>
-				<Heatmap data={data.heatmap} />
-			</section>
-
-			<footer class="foot">
-				<span>Claude Usage Dashboard · local &amp; private · cost figures are estimates, not billing</span>
-			</footer>
-		</div>
+				<footer class="foot">
+					<span>AgentBurn v{data.meta.version} · open source (MIT) · local &amp; private</span>
+					<span>
+						Costs are API-equivalent estimates from
+						<a href="https://github.com/BerriAI/litellm" target="_blank" rel="noreferrer">LiteLLM</a> prices
+						({PRICING_SOURCE[data.meta.pricing.source] ?? data.meta.pricing.source}, {data.meta.pricing.models} models) — not your subscription bill.
+					</span>
+				</footer>
+			</div>
+		{/if}
 	{/if}
 </main>
 
@@ -232,6 +318,8 @@
 		align-items: center;
 	}
 	.mark {
+		display: grid;
+		place-items: center;
 		width: 38px;
 		height: 38px;
 		border-radius: 12px;
@@ -256,6 +344,84 @@
 		display: flex;
 		align-items: center;
 		gap: 0.9rem;
+	}
+	.hero-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+	.notice {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.9rem;
+		padding: 1rem 1.3rem;
+		border-color: rgba(154, 141, 126, 0.18);
+	}
+	.notice p {
+		margin: 0;
+		font-size: 0.82rem;
+		line-height: 1.6;
+		color: var(--color-muted);
+	}
+	.notice strong {
+		color: var(--color-cream-dim);
+		font-weight: 500;
+	}
+	.notice code,
+	.onboarding code {
+		font-family: var(--font-mono);
+		font-size: 0.76rem;
+		color: var(--color-cream-dim);
+		background: var(--color-ink-800);
+		padding: 0.05rem 0.35rem;
+		border-radius: 5px;
+	}
+	.muted {
+		color: var(--color-faint);
+	}
+	.onboarding {
+		padding: 1.6rem 1.7rem;
+		color: var(--color-muted);
+		font-size: 0.86rem;
+		line-height: 1.6;
+	}
+	.onboarding ul {
+		margin: 0.2rem 0 0.8rem;
+		padding-left: 1.1rem;
+	}
+	.onboarding strong {
+		color: var(--color-cream-dim);
+		font-weight: 500;
+		margin-right: 0.3rem;
+	}
+	.toggle {
+		display: inline-flex;
+		padding: 3px;
+		gap: 2px;
+		background: var(--color-ink-850);
+		border: 1px solid rgba(244, 237, 227, 0.07);
+		border-radius: 999px;
+	}
+	.toggle button {
+		padding: 0.3rem 0.75rem;
+		border: 0;
+		border-radius: 999px;
+		background: transparent;
+		color: var(--color-muted);
+		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		letter-spacing: 0.04em;
+		cursor: pointer;
+		transition: background 0.25s var(--ease-out-soft), color 0.25s var(--ease-out-soft);
+	}
+	.toggle button.active {
+		background: var(--color-ink-700);
+		color: var(--color-cream);
+	}
+	.toggle button:focus-visible {
+		outline: 2px solid rgba(217, 119, 87, 0.6);
 	}
 	.stamp {
 		font-size: 0.68rem;
@@ -473,10 +639,25 @@
 	/* Footer */
 	.foot {
 		margin-top: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		align-items: center;
 		text-align: center;
+		line-height: 1.6;
 		font-family: var(--font-mono);
 		font-size: 0.7rem;
 		color: var(--color-faint);
+	}
+
+	.foot a {
+		color: var(--color-muted);
+		text-decoration: underline;
+		text-decoration-color: rgba(154, 141, 126, 0.4);
+		text-underline-offset: 2px;
+	}
+	.foot a:hover {
+		color: var(--color-clay-bright);
 	}
 
 	@media (max-width: 860px) {

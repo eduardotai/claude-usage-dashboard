@@ -1,13 +1,7 @@
-import type {
-	Summary,
-	DailyResponse,
-	ModelStat,
-	ProjectStat,
-	HeatmapResponse,
-	DashboardData
-} from './types';
+import type { AgentInfo, DailyResponse, DashboardData, HeatmapResponse, Meta, ModelStat, ProjectStat, Summary } from './types';
 
-const BASE = 'http://localhost:8000';
+// Same origin as the AgentBurn server (Vite proxies /api in dev).
+const BASE = '';
 
 export interface DashboardFilters {
 	/** Inclusive start date, ISO yyyy-mm-dd. Omit for open-ended (all time). */
@@ -16,6 +10,8 @@ export interface DashboardFilters {
 	end?: string | null;
 	/** Restrict to a single project. */
 	project?: string | null;
+	/** Restrict to a single agent id, e.g. "claude-code". */
+	agent?: string | null;
 }
 
 function qs(params: Record<string, string | null | undefined>): string {
@@ -35,26 +31,32 @@ async function getJSON<T>(path: string): Promise<T> {
 
 /** Fetch everything the dashboard needs in parallel, scoped by filters. */
 export async function fetchDashboard(filters: DashboardFilters = {}): Promise<DashboardData> {
-	const { start, end, project } = filters;
-	const scoped = qs({ start, end, project });
-	// Projects list spans all projects (so the user can switch) but honors dates.
-	const dateOnly = qs({ start, end });
-	// Heatmap stays a trailing-year view; it only narrows by project for context.
-	const heatScope = qs({ project });
+	const { start, end, project, agent } = filters;
+	const scoped = qs({ start, end, project, agent });
+	// Projects list spans all projects (so the user can switch) but honors dates + agent.
+	const noProject = qs({ start, end, agent });
+	// Agent list spans all agents but honors dates + project.
+	const noAgent = qs({ start, end, project });
+	// Heatmap stays a trailing-year view; it only narrows by project/agent.
+	const heatScope = qs({ project, agent });
 
-	const [summary, daily, modelsRes, projectsRes, heatmap] = await Promise.all([
+	const [summary, daily, modelsRes, projectsRes, heatmap, agentsRes, meta] = await Promise.all([
 		getJSON<Summary>(`/api/stats/summary${scoped}`),
 		getJSON<DailyResponse>(`/api/stats/daily${scoped}`),
 		getJSON<{ models: ModelStat[] }>(`/api/stats/models${scoped}`),
-		getJSON<{ projects: ProjectStat[] }>(`/api/stats/projects${dateOnly}`),
-		getJSON<HeatmapResponse>(`/api/stats/heatmap${heatScope}`)
+		getJSON<{ projects: ProjectStat[] }>(`/api/stats/projects${noProject}`),
+		getJSON<HeatmapResponse>(`/api/stats/heatmap${heatScope}`),
+		getJSON<{ agents: AgentInfo[] }>(`/api/agents${noAgent}`),
+		getJSON<Meta>('/api/meta')
 	]);
 	return {
 		summary,
 		daily,
 		models: modelsRes.models,
 		projects: projectsRes.projects,
-		heatmap
+		heatmap,
+		agents: agentsRes.agents,
+		meta
 	};
 }
 

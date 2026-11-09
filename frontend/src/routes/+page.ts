@@ -1,4 +1,4 @@
-// This is a local, client-side dashboard that talks to the FastAPI backend in
-// the browser — no server-side rendering or prerendering needed.
+// Client-only SPA: the AgentBurn CLI serves the built files and the JSON API
+// from the same local origin. No SSR, no prerendered data.
 export const ssr = false;
 export const prerender = false;

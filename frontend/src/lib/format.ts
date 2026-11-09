@@ -45,19 +45,30 @@ export function relativeTime(iso: string | null): string {
 	return `${Math.floor(secs / 86400)}d ago`;
 }
 
-/** USD money formatter, compact for large figures. e.g. 917.8 -> "$917.80". */
-export function money(n: number): string {
+/** USD money formatter, compact for large figures. e.g. 917.8 -> "$917.80". null -> "n/a". */
+export function money(n: number | null): string {
+	if (n === null) return 'n/a';
+	if (n > 0 && n < 0.01) return '<$0.01';
 	if (n >= 10000) return '$' + (n / 1000).toFixed(1) + 'K';
 	return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/** Tidy up a raw model id for display: claude-opus-4-8 -> "Opus 4.8". */
+/** Tidy up a raw model id for display: claude-opus-4-8 -> "Opus 4.8". Unknown ids pass through. */
 export function modelLabel(model: string): string {
 	const m = model.toLowerCase();
+	if (m.startsWith('gpt-')) return model.replace(/^gpt-/i, 'GPT-');
 	const family = m.includes('opus') ? 'Opus' : m.includes('sonnet') ? 'Sonnet' : m.includes('haiku') ? 'Haiku' : null;
 	if (!family) return model;
 	// Pull the version digits that follow the family name (e.g. "4-8" or "4-5-2025...").
 	const match = m.match(/(opus|sonnet|haiku)-(\d+)-(\d+)/);
 	if (match) return `${family} ${match[2]}.${match[3]}`;
 	return family;
+}
+
+/** Percentage with one decimal, e.g. 0.9821 -> "98.2%". */
+export function pct(share: number): string {
+	if (share >= 1) return '100%';
+	if (share <= 0) return '0%';
+	// Floor so partial coverage never rounds up to a misleading "100%".
+	return `${(Math.floor(share * 1000) / 10).toFixed(1)}%`;
 }

@@ -34,7 +34,7 @@
 				</div>
 				<div class="detail">
 					<span>{grouped(p.tokens)} tokens · {p.sessions} sessions</span>
-					<span class="cost">{money(p.cost)}</span>
+					<span class="cost" title={p.cost === null ? 'No priced models in this project' : p.cost_coverage < 1 ? 'Partial: some models in this project have no public price' : 'API-equivalent estimate'}>{money(p.cost)}{p.cost !== null && p.cost_coverage < 1 ? '*' : ''}</span>
 				</div>
 			</button>
 		</li>

@@ -2,12 +2,18 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Chart } from 'chart.js/auto';
 	import type { DailyPoint } from '$lib/types';
-	import { compact, grouped, shortDate } from '$lib/format';
+	import { compact, grouped, money, shortDate } from '$lib/format';
 
 	interface Props {
 		data: DailyPoint[];
+		/** What the bars show: measured tokens or estimated API-equivalent cost. */
+		metric?: 'tokens' | 'cost';
 	}
-	let { data }: Props = $props();
+	let { data, metric = 'tokens' }: Props = $props();
+
+	const values = () => data.map((d) => (metric === 'cost' ? d.cost : d.tokens));
+	const fmtTick = (v: number) => (metric === 'cost' ? money(v) : compact(v));
+	const fmtLabel = (v: number) => (metric === 'cost' ? `${money(v)} est.` : `${grouped(v)} tokens`);
 
 	let canvas: HTMLCanvasElement;
 	let chart: Chart | null = null;
@@ -28,7 +34,7 @@
 				labels: data.map((d) => shortDate(d.date)),
 				datasets: [
 					{
-						data: data.map((d) => d.tokens),
+						data: values(),
 						backgroundColor: grad,
 						hoverBackgroundColor: '#f0a07e',
 						borderRadius: 5,
@@ -55,7 +61,7 @@
 						displayColors: false,
 						callbacks: {
 							title: (items) => shortDate(data[items[0].dataIndex].date),
-							label: (item) => `${grouped(Number(item.parsed.y))} tokens`
+							label: (item) => fmtLabel(Number(item.parsed.y))
 						}
 					}
 				},
@@ -78,7 +84,7 @@
 							color: '#6f6357',
 							font: { family: 'IBM Plex Mono', size: 9 },
 							maxTicksLimit: 5,
-							callback: (v) => compact(Number(v))
+							callback: (v) => fmtTick(Number(v))
 						}
 					}
 				}
@@ -92,7 +98,7 @@
 		// Re-render when the dataset changes (e.g. after a refresh).
 		if (chart) {
 			chart.data.labels = data.map((d) => shortDate(d.date));
-			chart.data.datasets[0].data = data.map((d) => d.tokens);
+			chart.data.datasets[0].data = values();
 			chart.update();
 		}
 	});

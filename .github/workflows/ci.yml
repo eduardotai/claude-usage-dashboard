@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: [20, 22, 24]
+        include:
+          - os: macos-latest
+            node: 22
+          - os: windows-latest
+            node: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Type check (server + UI)
+        run: npm run check
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Smoke test the packaged CLI
+        shell: bash
+        run: |
+          npm pack
+          SMOKE="${RUNNER_TEMP:-/tmp}/smoke"
+          mkdir -p "$SMOKE"
+          cd "$SMOKE"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE"/agentburn-*.tgz
+          AGENTBURN_OFFLINE=1 npx agentburn --no-open --port 4417 --claude-dir "$GITHUB_WORKSPACE/test/fixtures/claude" &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4417/api/health && break; sleep 1; done
+          curl -sf http://127.0.0.1:4417/api/stats/summary | grep -q '"total_messages":6'
+          curl -sf http://127.0.0.1:4417/ | grep -qi '<html'
+          echo "smoke OK"

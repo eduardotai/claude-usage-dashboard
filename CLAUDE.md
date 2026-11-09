@@ -1,76 +1,38 @@
-# CLAUDE.md — Instructions for Claude Code
+# CLAUDE.md — working on AgentBurn
 
-This file contains rules and guidelines for working on the **claude-usage-dashboard** project.
+AgentBurn is a local-first, open-source (MIT) dashboard of token usage and
+**API-equivalent** cost across AI coding agents. One command (`npx agentburn`)
+starts a localhost server that serves both the JSON API and the built UI.
 
-## Core Principles
+## Principles
 
-1. **Spec-Driven Development**
-   - Always implement features based on a written spec.
-   - If a spec doesn't exist for a feature, create one first in `specs/`.
-   - Never implement something big without a clear spec.
+1. **Honest numbers.** Every figure carries provenance: `measured` (read from the
+   agent's logs), `estimated` (computed by us, e.g. cost) or `unavailable`.
+   Never silently turn "unknown" into 0 — unknown models get `cost: null` and are
+   listed as unpriced. Cost is always "API-equivalent", never "your bill".
+2. **Local & private.** Logs never leave the machine. No telemetry. The only
+   network request allowed is the LiteLLM price-table download, which must keep
+   working offline (`--offline`, disk cache, bundled snapshot).
+3. **Polish.** The UI is the product. Keep the dark "Observatory" design tokens
+   in `frontend/src/app.css`; no third-party requests from the UI (fonts are bundled).
+4. **Zero runtime deps.** The published package depends on nothing at runtime
+   (node:http, node:fs). UI deps are bundled at build time.
 
-2. **Quality over Speed**
-   - Write clean, readable, well-structured code.
-   - Prefer simple solutions over clever ones.
-   - Keep components small and focused.
+## Layout
 
-3. **Privacy & Local-First**
-   - Everything must run locally.
-   - Never add telemetry, external API calls, or tracking.
-   - The app only reads files from the user's machine.
+- `src/cli.ts` — `agentburn` bin (args, port fallback, open browser)
+- `src/server.ts` — node:http server: `/api/*` + static SPA from `dist/ui`
+- `src/adapters/*` — one file per agent, each returns normalized `RawUsageRecord`s
+  (`src/core/types.ts`). Add an agent = add an adapter + register it in `adapters/index.ts`.
+- `src/pricing/litellm.ts` — LiteLLM price table loading + cost math
+- `src/core/stats.ts` — pure aggregations (the API's JSON shapes)
+- `frontend/` — SvelteKit (adapter-static) + Tailwind 4 + Chart.js
+- `test/` — vitest, synthetic fixtures in `test/fixtures/`
 
-4. **Beautiful but Lightweight**
-   - UI should feel modern and calm (dark theme by default).
-   - Avoid heavy dependencies when possible.
-   - Prioritize perceived performance.
+## Workflow
 
-## Tech Stack Rules
-
-- **Backend**: FastAPI + Python
-- **Frontend**: SvelteKit + TypeScript + Tailwind
-- **State Management**: Use Svelte stores or simple props (avoid over-engineering)
-- **Charts**: Chart.js is preferred for MVP (simple and reliable)
-- **Styling**: Tailwind + minimal custom CSS
-
-## Development Workflow
-
-When asked to implement a feature:
-
-1. Read the relevant spec in `specs/`
-2. Read `PRD.md` to understand the bigger picture
-3. Check existing code structure before writing new code
-4. Implement in small, logical steps
-5. Use clear naming and add light comments where helpful
-6. Make sure the feature works end-to-end (backend + frontend)
-
-## Code Style Preferences
-
-- Use TypeScript strictly in the frontend
-- Prefer composition over deep inheritance
-- Keep API responses simple and flat when possible
-- Use meaningful variable and function names
-- Write self-documenting code
-
-## Important Constraints
-
-- Do **not** add authentication (this is a local tool)
-- Do **not** make external network requests
-- Keep the backend as lightweight as possible
-- The user may run this on a Mac — respect macOS paths
-
-## Communication Style
-
-When working on this project:
-- Be direct and clear
-- Propose small, testable increments
-- Ask for clarification when a spec is ambiguous
-- Suggest improvements only when they clearly align with the PRD
-
-## File Organization
-
-- Keep backend logic in `backend/services/`
-- Keep API routes clean in `backend/main.py`
-- Frontend components should be small and reusable
-- Put complex logic in services/stores, not directly in components
-
-Follow these rules strictly. They exist to make the project maintainable and pleasant to work on long-term.
+- `npm run dev` (API on 4317 with reload + Vite on 5173), `npm test`, `npm run check`, `npm run build`
+- New adapter: write fixtures that reproduce the agent's real quirks (duplicates,
+  resumed sessions, subagents) and test dedupe before wiring the UI.
+- Keep API responses flat and snake_case; mirror changes in `frontend/src/lib/types.ts`.
+- `docs/legacy/` holds the original PRD/specs from the Python version, for history only.

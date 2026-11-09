@@ -90,7 +90,7 @@
 			<li>
 				<span class="dot" style="background: {colorAt(i)}"></span>
 				<span class="name">{modelLabel(m.model)}</span>
-				<span class="num cost">{money(m.cost)}</span>
+				<span class="num cost" class:na={m.cost === null} title={m.cost === null ? 'No public price for this model: excluded from cost' : 'API-equivalent estimate'}>{money(m.cost)}</span>
 				<span class="num pct">{(m.share * 100).toFixed(1)}%</span>
 			</li>
 		{/each}
@@ -155,6 +155,10 @@
 	}
 	.name {
 		color: var(--color-cream-dim);
+	}
+	.cost.na {
+		color: var(--color-faint);
+		font-style: italic;
 	}
 	.cost {
 		margin-left: auto;
