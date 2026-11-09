@@ -1,0 +1,2 @@
+Date,Model,Input (w/ Cache Write),Input (w/o Cache Write),Cache Read,Output Tokens,Total Tokens,Cost,Cost to you
+2026-10-20T09:00:00.000Z,gpt-5,100,900,4000,300,5300,0.01,0

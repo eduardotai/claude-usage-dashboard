@@ -32,7 +32,17 @@ starts a localhost server that serves both the JSON API and the built UI.
 ## Workflow
 
 - `npm run dev` (API on 4317 with reload + Vite on 5173), `npm test`, `npm run check`, `npm run build`
-- New adapter: write fixtures that reproduce the agent's real quirks (duplicates,
-  resumed sessions, subagents) and test dedupe before wiring the UI.
+- New adapter: research the real on-disk format first and cite sources in the adapter's
+  header comment. Never invent a format: if there's no verified local source, register the
+  agent as `planned` with a `note` saying what's missing (see Grok Bot in `adapters/index.ts`).
+- Write fixtures that reproduce the agent's real quirks (duplicates, running totals,
+  resumed/forked sessions, subagents). Fixture builders live next to the fixtures
+  (`test/fixtures/build-*-fixtures.mjs`). Tests must not read the real home dir:
+  use `fixturesEnv()` from `test/helpers.ts`.
+- Records with no token data get `tokens: 'unavailable'` (they count as `calls`, never as 0
+  tokens). A cost the agent recorded itself goes in `reportedCostUsd` (cost `measured`).
+  Agent-specific model ids map to LiteLLM ids via `pricingModel`, by exact rules only.
+- Optional Node features (`node:sqlite`, zstd) must degrade with a warning on Node 20, and
+  their tests use `it.runIf`.
 - Keep API responses flat and snake_case; mirror changes in `frontend/src/lib/types.ts`.
 - `docs/legacy/` holds the original PRD/specs from the Python version, for history only.

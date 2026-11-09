@@ -13,6 +13,8 @@
 	import RefreshButton from '$lib/components/RefreshButton.svelte';
 	import RangeSelector from '$lib/components/RangeSelector.svelte';
 	import AgentSelector from '$lib/components/AgentSelector.svelte';
+	import AgentCards from '$lib/components/AgentCards.svelte';
+	import { agentColor } from '$lib/palette';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 
 	let data = $state<DashboardData | null>(null);
@@ -28,6 +30,12 @@
 	const agentLabel = $derived(data?.agents.find((a) => a.id === agent)?.label ?? null);
 	const scopeNote = $derived([agentLabel, project].filter(Boolean).join(' · '));
 	const hasData = $derived((data?.agents ?? []).some((a) => a.detected));
+	const agentLabels = $derived(Object.fromEntries((data?.agents ?? []).map((a) => [a.id, a.label])));
+	const chartAgents = $derived(data?.daily.agents ?? []);
+	/** Agents whose logs carry no tokens for some calls (e.g. Cursor's local DB). */
+	const unmeasuredBy = $derived(
+		(data?.agents ?? []).filter((a) => a.usage && a.usage.unmeasured_calls > 0 && (!agent || a.id === agent))
+	);
 
 	const PRICING_SOURCE: Record<string, string> = {
 		live: 'downloaded just now',
@@ -151,13 +159,10 @@
 			<div class="panel onboarding rise" style="animation-delay: 60ms">
 				<span class="eyebrow">No agent logs found</span>
 				<h2 class="serif block-title">Nothing to burn yet</h2>
-				<p>AgentBurn looked in:</p>
-				<ul>
-					{#each data.agents.filter((a) => a.status === 'available') as a}
-						<li><strong>{a.label}</strong> <code>{a.data_paths.join(', ')}</code></li>
-					{/each}
-				</ul>
-				<p>Use an agent for a bit and hit refresh, or point AgentBurn at another folder: <code>npx agentburn --claude-dir /path/to/projects</code></p>
+				<p>AgentBurn reads each agent’s own files on this machine. Use one for a bit and hit refresh, or point AgentBurn at another folder, e.g. <code>npx agentburn --claude-dir /path/to/projects</code>.</p>
+			</div>
+			<div class="rise" style="animation-delay: 120ms">
+				<AgentCards agents={data.agents} selected={agent} onselect={setAgent} />
 			</div>
 		{/if}
 
@@ -187,6 +192,9 @@
 							{#if data.summary.sidechain_messages}
 								· {grouped(data.summary.sidechain_messages)} subagent calls included
 							{/if}
+							{#if data.summary.unmeasured_calls}
+								· tokens recorded for {pct(data.summary.token_coverage)} of calls
+							{/if}
 						</p>
 					</div>
 				</section>
@@ -198,14 +206,16 @@
 						value={data.summary.provenance.cost === 'unavailable' ? 'n/a' : money(data.summary.estimated_cost)}
 						sub={data.summary.cost_coverage < 1 && data.summary.total_tokens > 0
 							? `${pct(data.summary.cost_coverage)} of tokens priced · not your bill`
-							: 'at public API prices · not your bill'}
+							: data.summary.provenance.cost === 'measured'
+								? 'as recorded by the agent · not your bill'
+								: 'at public API prices · not your bill'}
 						provenance={data.summary.provenance.cost}
 						accent
 						delay={120}
 					/>
 					<KpiCard label="Avg / active day" value={compact(data.summary.avg_tokens_per_active_day)} sub="tokens" delay={170} />
-					<KpiCard label="Model calls" value={grouped(data.summary.total_messages)} sub="{grouped(data.summary.total_sessions)} sessions" delay={220} />
-					<KpiCard label="Projects" value={grouped(data.summary.total_projects)} sub="{data.summary.total_models} models used" delay={270} />
+					<KpiCard label="Model calls" value={grouped(data.summary.total_calls)} sub="{grouped(data.summary.total_sessions)} {data.summary.total_sessions === 1 ? 'session' : 'sessions'}" delay={220} />
+					<KpiCard label="Projects" value={grouped(data.summary.total_projects)} sub="{data.summary.total_models} {data.summary.total_models === 1 ? 'model' : 'models'} used" delay={270} />
 				</section>
 
 				{#if data.summary.unpriced_models.length}
@@ -221,6 +231,30 @@
 					</aside>
 				{/if}
 
+				{#if unmeasuredBy.length}
+					<aside class="panel notice rise" style="animation-delay: 170ms">
+						<ProvenanceBadge kind="unavailable" title="Unavailable: the agent does not store token counts for these calls." />
+						<p>
+							<strong>{grouped(data.summary.unmeasured_calls)} {data.summary.unmeasured_calls === 1 ? 'call has' : 'calls have'} no token counts on disk</strong>
+							({unmeasuredBy.map((a) => a.label).join(', ')}). They count toward calls, not toward tokens or cost, so totals here are a floor.
+							{#if unmeasuredBy.some((a) => a.id === 'cursor')}
+								For exact Cursor tokens, export the usage CSV from Cursor’s dashboard and drop it into <code>~/.agentburn/imports/cursor/</code>.
+							{/if}
+						</p>
+					</aside>
+				{/if}
+
+				<!-- Agents -->
+				<section class="panel block rise" style="animation-delay: 190ms">
+					<div class="block-head">
+						<div>
+							<span class="eyebrow">{RANGE_NOUN[range]} · click to filter</span>
+							<h2 class="serif block-title">Agents</h2>
+						</div>
+					</div>
+					<AgentCards agents={data.agents} selected={agent} onselect={setAgent} />
+				</section>
+
 				<!-- Daily chart -->
 				<section class="panel block rise" style="animation-delay: 200ms">
 					<div class="block-head">
@@ -233,7 +267,14 @@
 							<button role="tab" aria-selected={metric === 'cost'} class:active={metric === 'cost'} onclick={() => (metric = 'cost')}>Est. cost</button>
 						</div>
 					</div>
-					<DailyChart data={data.daily.daily} {metric} />
+					{#if chartAgents.length > 1}
+						<ul class="legend" aria-label="Agents in chart">
+							{#each chartAgents as id}
+								<li><span class="swatch" style="background: {agentColor(id)}"></span>{agentLabels[id] ?? id}</li>
+							{/each}
+						</ul>
+					{/if}
+					<DailyChart data={data.daily.daily} agents={chartAgents} labels={agentLabels} {metric} />
 				</section>
 
 				<!-- Models + Projects -->
@@ -283,7 +324,7 @@
 					<span>
 						Costs are API-equivalent estimates from
 						<a href="https://github.com/BerriAI/litellm" target="_blank" rel="noreferrer">LiteLLM</a> prices
-						({PRICING_SOURCE[data.meta.pricing.source] ?? data.meta.pricing.source}, {data.meta.pricing.models} models) — not your subscription bill.
+						({PRICING_SOURCE[data.meta.pricing.source] ?? data.meta.pricing.source}, {data.meta.pricing.models} models), or the cost an agent recorded itself (Grok Build) — not your subscription bill.
 					</span>
 				</footer>
 			</div>
@@ -381,20 +422,34 @@
 	.muted {
 		color: var(--color-faint);
 	}
+	.onboarding p {
+		margin: 0.6rem 0 0;
+	}
 	.onboarding {
 		padding: 1.6rem 1.7rem;
 		color: var(--color-muted);
 		font-size: 0.86rem;
 		line-height: 1.6;
 	}
-	.onboarding ul {
-		margin: 0.2rem 0 0.8rem;
-		padding-left: 1.1rem;
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem 1.1rem;
+		list-style: none;
+		margin: -0.6rem 0 1rem;
+		padding: 0;
+		font-size: 0.74rem;
+		color: var(--color-muted);
 	}
-	.onboarding strong {
-		color: var(--color-cream-dim);
-		font-weight: 500;
-		margin-right: 0.3rem;
+	.legend li {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+	.legend .swatch {
+		width: 9px;
+		height: 9px;
+		border-radius: 3px;
 	}
 	.toggle {
 		display: inline-flex;

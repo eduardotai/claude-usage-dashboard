@@ -23,7 +23,8 @@ if (!res.ok) throw new Error(`download failed: ${res.status}`);
 const table = await res.json();
 const models = {};
 for (const [key, v] of Object.entries(table).sort(([a], [b]) => a.localeCompare(b))) {
-	if (key.includes('/') || !PROVIDERS.has(v.litellm_provider)) continue;
+	// Unprefixed ids, plus xAI's which LiteLLM only lists as `xai/<model>`.
+	if ((key.includes('/') && !key.startsWith('xai/')) || !PROVIDERS.has(v.litellm_provider)) continue;
 	if (!['chat', 'responses'].includes(v.mode) || typeof v.input_cost_per_token !== 'number') continue;
 	models[key] = Object.fromEntries(FIELDS.filter((f) => v[f] !== undefined).map((f) => [f, v[f]]));
 }

@@ -33,7 +33,7 @@
 					<div class="fill" style="width: {Math.max((p.tokens / max) * 100, 1.5)}%"></div>
 				</div>
 				<div class="detail">
-					<span>{grouped(p.tokens)} tokens · {p.sessions} sessions</span>
+					<span>{grouped(p.tokens)} tokens · {p.sessions} {p.sessions === 1 ? 'session' : 'sessions'}</span>
 					<span class="cost" title={p.cost === null ? 'No priced models in this project' : p.cost_coverage < 1 ? 'Partial: some models in this project have no public price' : 'API-equivalent estimate'}>{money(p.cost)}{p.cost !== null && p.cost_coverage < 1 ? '*' : ''}</span>
 				</div>
 			</button>

@@ -1,0 +1,5 @@
+"Date","User","Cloud Agent ID","Automation ID","Kind","Model","Max Mode","Input (w/ Cache Write)","Input (w/o Cache Write)","Cache Read","Output Tokens","Total Tokens","Cost"
+"2026-11-05T16:40:12.511Z","dev@example.com","","","Included","claude-4.5-sonnet-thinking","No","1,204","3,410","52,880","1,987","59,481","Included"
+"2026-11-05T16:12:03.004Z","dev@example.com","bc-6a1f0e2d","","Included","cursor-grok-4.6-xhigh-fast","No","0","8,120","40,960","2,301","51,381","Included"
+"2026-11-05T15:58:44.870Z","dev@example.com","","","Errored, Not Charged","composer-2.5-fast","No","0","0","0","0","0","$0.00"
+"2026-11-04T21:05:19.300Z","dev@example.com","","","Usage-based","gpt-5.5","Yes","0","12,000","20,000","900","32,900","$0.11"
