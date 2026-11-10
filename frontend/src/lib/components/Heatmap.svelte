@@ -155,7 +155,7 @@
 	{#if hovered}
 		<div class="tip" style="left: {tipX}px; top: {tipY}px">
 			<strong class="num">{grouped(hovered.tokens)}</strong> tokens
-			<span class="tip-date">{longDate(hovered.iso)} · {hovered.count} msgs</span>
+			<span class="tip-date">{longDate(hovered.iso)} · {hovered.count} calls</span>
 		</div>
 	{/if}
 </div>

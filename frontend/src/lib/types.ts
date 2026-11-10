@@ -78,6 +78,11 @@ interface Costed {
 	agents: string[];
 }
 
+export interface AgentUsage extends Omit<Costed, 'agents'> {
+	agent: string;
+	sessions: number;
+}
+
 export interface ModelStat extends Costed {
 	model: string;
 }
@@ -90,6 +95,7 @@ export interface ProjectStat extends Costed {
 export interface HeatmapCell {
 	date: string;
 	tokens: number;
+	/** Model calls that day (not messages). */
 	count: number;
 	cost: number;
 }
@@ -121,19 +127,8 @@ export interface AgentInfo {
 	detected: boolean;
 	data_paths: string[];
 	scan: ScanStats | null;
-	usage: {
-		tokens: number;
-		messages: number;
-		calls: number;
-		unmeasured_calls: number;
-		token_coverage: number;
-		sessions: number;
-		cost: number | null;
-		cost_provenance: Provenance;
-		billed: number | null;
-		billed_records: number;
-		charged_records: number;
-	} | null;
+	/** This agent's row of the per-agent aggregation, in the current filter. */
+	usage: AgentUsage | null;
 }
 
 export interface Meta {
@@ -141,6 +136,8 @@ export interface Meta {
 	version: string;
 	generated_at: string | null;
 	pricing: { source: 'live' | 'cache' | 'stale-cache' | 'bundled'; fetched_at: string | null; models: number; url: string };
+	/** Same as /api/agents without usage. */
+	agents: Omit<AgentInfo, 'usage'>[];
 }
 
 export interface DashboardData {
