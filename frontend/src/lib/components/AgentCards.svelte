@@ -95,13 +95,13 @@
 				<p class="hint">No usage in this range.</p>
 			{:else if st === 'missing'}
 				<p class="hint">{HINTS[a.id] ?? 'No logs found.'}</p>
-				<p class="paths">Looked in {#each a.data_paths as p, i}{i ? ', ' : ''}<code>{shortPath(p)}</code>{/each}</p>
+				<p class="paths">Looked in {#each a.data_paths as p, i (i)}{i ? ', ' : ''}<code>{shortPath(p)}</code>{/each}</p>
 			{:else}
 				<p class="hint">{a.note ?? 'Support is on the roadmap.'}</p>
 			{/if}
 
 			<p class="source">{a.source}</p>
-			{#each a.warnings as w}
+			{#each a.warnings as w, i (i)}
 				<p class="warn">{w}</p>
 			{/each}
 		</svelte:element>

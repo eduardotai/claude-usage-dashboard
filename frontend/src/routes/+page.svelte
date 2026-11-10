@@ -132,7 +132,7 @@
 		</div>
 	{:else if !data}
 		<section class="kpis">
-			{#each Array(4) as _}
+			{#each Array(4) as _, i (i)}
 				<div class="panel skel-card"><div class="shimmer"></div></div>
 			{/each}
 		</section>
@@ -179,7 +179,7 @@
 						</div>
 						<div class="hero-number num">{full(data.summary.total_tokens)}</div>
 						<div class="hero-break">
-							{#each [['Input', data.summary.breakdown.input], ['Output', data.summary.breakdown.output], ['Cache write', data.summary.breakdown.cache_creation], ['Cache read', data.summary.breakdown.cache_read]] as [label, val]}
+							{#each [['Input', data.summary.breakdown.input], ['Output', data.summary.breakdown.output], ['Cache write', data.summary.breakdown.cache_creation], ['Cache read', data.summary.breakdown.cache_read]] as [label, val] (label)}
 								<div class="break-item">
 									<span class="break-label">{label}</span>
 									<span class="break-val num">{compact(Number(val))}</span>
@@ -236,7 +236,7 @@
 						<p>
 							<strong>{data.summary.unpriced_models.length === 1 ? '1 model has' : `${data.summary.unpriced_models.length} models have`} no public price</strong>
 							and {data.summary.unpriced_models.length === 1 ? 'is' : 'are'} left out of the cost estimate instead of being counted as $0:
-							{#each data.summary.unpriced_models.slice(0, 4) as m, i}
+							{#each data.summary.unpriced_models.slice(0, 4) as m, i (i)}
 								{i ? ', ' : ''}<code>{m.model}</code> <span class="muted">({compact(m.tokens)} tokens)</span>
 							{/each}{data.summary.unpriced_models.length > 4 ? ', …' : ''}
 						</p>
@@ -281,7 +281,7 @@
 					</div>
 					{#if chartAgents.length > 1}
 						<ul class="legend" aria-label="Agents in chart">
-							{#each chartAgents as id}
+							{#each chartAgents as id (id)}
 								<li><span class="swatch" style="background: {agentColor(id)}"></span>{agentLabels[id] ?? id}</li>
 							{/each}
 						</ul>
