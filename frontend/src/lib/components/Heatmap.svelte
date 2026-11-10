@@ -19,6 +19,10 @@
 		const [y, m, d] = iso.split('-').map(Number);
 		return new Date(y, m - 1, d);
 	}
+	/** Local-midnight date `n` days later (new instance; dates here are never mutated). */
+	function addDays(d: Date, n: number): Date {
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+	}
 	function toISO(d: Date): string {
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 	}
@@ -45,11 +49,10 @@
 		const end = parseISO(data.end);
 
 		// Pad the start back to the previous Sunday so weeks form clean columns.
-		const gridStart = new Date(start);
-		gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+		const gridStart = addDays(start, -start.getDay());
 
 		const cols: Day[][] = [];
-		let cursor = new Date(gridStart);
+		let cursor = gridStart;
 		while (cursor <= end) {
 			const col: Day[] = [];
 			for (let dow = 0; dow < 7; dow++) {
@@ -64,7 +67,7 @@
 					level: inRange ? levelFor(tokens, thresholds) : 0,
 					inRange
 				});
-				cursor.setDate(cursor.getDate() + 1);
+				cursor = addDays(cursor, 1);
 			}
 			cols.push(col);
 		}
@@ -106,22 +109,22 @@
 <div class="heatmap">
 	<div class="scroll">
 		<div class="months" style="grid-template-columns: repeat({weeks.length}, 13px)">
-			{#each monthLabels as l}
+			{#each monthLabels as l (l.col)}
 				<span class="month" style="grid-column: {l.col + 1}">{l.text}</span>
 			{/each}
 		</div>
 
 		<div class="body">
 			<div class="days">
-				{#each dayLabels as d}
+				{#each dayLabels as d, i (i)}
 					<span class="day">{d}</span>
 				{/each}
 			</div>
 
 			<div class="grid" style="grid-template-columns: repeat({weeks.length}, 13px)">
-				{#each weeks as col}
+				{#each weeks as col (col[0].iso)}
 					<div class="col">
-						{#each col as day}
+						{#each col as day (day.iso)}
 							<div
 								class="cell lvl-{day.level}"
 								class:out={!day.inRange}

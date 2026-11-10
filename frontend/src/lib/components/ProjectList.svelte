@@ -15,7 +15,7 @@
 </script>
 
 <ul class="list">
-	{#each shown as p, i}
+	{#each shown as p, i (p.project)}
 		<li>
 			<button
 				class="row"

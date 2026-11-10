@@ -187,7 +187,7 @@ const tsOf = (v: unknown): number | null => {
 async function workspaceProjects(userDir: string): Promise<Map<string, string>> {
 	const map = new Map<string, string>();
 	const wsRoot = join(userDir, 'workspaceStorage');
-	let dirs: string[] = [];
+	let dirs: string[];
 	try {
 		dirs = await readdir(wsRoot);
 	} catch {
