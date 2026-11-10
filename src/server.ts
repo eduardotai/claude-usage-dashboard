@@ -2,6 +2,7 @@
  * One local HTTP server: JSON API under /api, the built SvelteKit UI everywhere else.
  * Zero runtime dependencies (node:http only).
  */
+import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -30,6 +31,70 @@ function isLocalHost(host: string | undefined, extra: Set<string>): boolean {
 	return LOCAL_HOSTS.has(name.toLowerCase()) || extra.has(name.toLowerCase());
 }
 
+/**
+ * CSRF guard for state-changing requests. The Host allowlist stops DNS rebinding, but a page on
+ * any site can still POST to http://127.0.0.1:<port> (Host is then legitimately local). Browsers
+ * tag such requests, so require the tags to name this very server:
+ * 1. `Sec-Fetch-Site` (set by the browser, pages can't forge it) must be same-origin or none.
+ *    Checked first because same-origin POSTs under `Referrer-Policy: no-referrer` carry
+ *    `Origin: null` in some browsers.
+ * 2. Otherwise `Origin`, then `Referer`, must have this request's Host.
+ * Clients that send none of these (curl, scripts) aren't browsers a web page can drive: allowed.
+ */
+export function isSameOrigin(headers: IncomingMessage['headers']): boolean {
+	const site = headers['sec-fetch-site'];
+	if (site !== undefined) return site === 'same-origin' || site === 'none';
+	const host = headers.host?.toLowerCase();
+	if (!host) return false;
+	const matches = (value: string) => {
+		try {
+			const u = new URL(value);
+			return (u.protocol === 'http:' || u.protocol === 'https:') && u.host.toLowerCase() === host;
+		} catch {
+			return false; // includes the opaque `Origin: null`
+		}
+	};
+	if (headers.origin !== undefined) return matches(headers.origin);
+	if (headers.referer !== undefined) return matches(headers.referer);
+	return true;
+}
+
+/** sha256 CSP sources for the inline <script> blocks of an HTML page (SvelteKit's bootstrap). */
+export function inlineScriptHashes(html: string): string[] {
+	const hashes: string[] = [];
+	for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+		if (/\bsrc\s*=/i.test(m[1]!)) continue;
+		hashes.push(`'sha256-${createHash('sha256').update(m[2]!).digest('base64')}'`);
+	}
+	return hashes;
+}
+
+/** CSP for the UI: everything from this origin, no third parties, only our own inline bootstrap. */
+function pageCsp(scriptHashes: string[]): string {
+	return [
+		"default-src 'self'",
+		['script-src', "'self'", ...scriptHashes].join(' '),
+		// Svelte/Chart.js set inline style attributes; styles can't run code.
+		"style-src 'self' 'unsafe-inline'",
+		"img-src 'self' data:",
+		"font-src 'self'",
+		"connect-src 'self'",
+		"object-src 'none'",
+		"base-uri 'none'",
+		"form-action 'self'",
+		"frame-ancestors 'none'"
+	].join('; ');
+}
+
+const SECURITY_HEADERS = {
+	'x-content-type-options': 'nosniff',
+	'x-frame-options': 'DENY',
+	// same-origin (not no-referrer) so same-origin POSTs keep a real Origin header.
+	'referrer-policy': 'same-origin',
+	'cross-origin-opener-policy': 'same-origin',
+	'cross-origin-resource-policy': 'same-origin'
+};
+
 class HttpError extends Error {
 	constructor(
 		readonly status: number,
@@ -44,7 +109,8 @@ function send(res: ServerResponse, status: number, body: unknown) {
 	res.writeHead(status, {
 		'content-type': 'application/json; charset=utf-8',
 		'cache-control': 'no-store',
-		'x-content-type-options': 'nosniff'
+		...SECURITY_HEADERS,
+		'content-security-policy': "default-src 'none'; frame-ancestors 'none'"
 	});
 	res.end(json);
 }
@@ -119,6 +185,7 @@ export function createAppServer({ store, uiDir, allowedHosts = [] }: ServerOptio
 				return send(res, 200, stats.heatmap(records, days));
 			}
 			case 'POST /api/refresh': {
+				if (!isSameOrigin(req.headers)) throw new HttpError(403, 'Cross-origin request blocked');
 				await store.refresh();
 				const records = await store.all();
 				return send(res, 200, { status: 'ok', records: records.length, generated_at: store.generatedAt });
@@ -150,11 +217,12 @@ export function createAppServer({ store, uiDir, allowedHosts = [] }: ServerOptio
 		}
 		const body = await readFile(file);
 		const immutable = rel.startsWith('/_app/immutable/');
+		const ext = extname(file);
 		res.writeHead(200, {
-			'content-type': MIME[extname(file)] ?? 'application/octet-stream',
+			'content-type': MIME[ext] ?? 'application/octet-stream',
 			'cache-control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
-			'x-content-type-options': 'nosniff',
-			'referrer-policy': 'no-referrer'
+			...SECURITY_HEADERS,
+			'content-security-policy': pageCsp(ext === '.html' ? inlineScriptHashes(body.toString('utf8')) : [])
 		});
 		res.end(body);
 	}

@@ -298,7 +298,7 @@ accepts `start`, `end` (`yyyy-mm-dd`), `project` and `agent` (e.g. `claude-code`
 | `/api/stats/daily` | per-day tokens, cost and calls with a `by_agent` split (`days=N` for a trailing window) |
 | `/api/stats/models` · `/projects` · `/agents` | grouped tokens, calls, cost (`null` when unpriced) |
 | `/api/stats/heatmap` | trailing-year daily cells (`days=30..730`) |
-| `POST /api/refresh` | re-scan logs from disk |
+| `POST /api/refresh` | re-scan logs from disk (same-origin only: cross-site browser requests get 403) |
 
 ## Develop
 
