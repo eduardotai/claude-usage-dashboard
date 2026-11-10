@@ -76,11 +76,11 @@ export function createAppServer({ store, uiDir, allowedHosts = [] }: ServerOptio
 
 		switch (route) {
 			case 'GET /api/health':
-				return send(res, 200, { status: 'ok', name: 'agentburn', version: VERSION });
+				return send(res, 200, { status: 'ok', name: 'burnboard', version: VERSION });
 			case 'GET /api/meta':
 				await store.all();
 				return send(res, 200, {
-					name: 'AgentBurn',
+					name: 'Burnboard',
 					version: VERSION,
 					generated_at: store.generatedAt,
 					pricing: {
@@ -131,7 +131,7 @@ export function createAppServer({ store, uiDir, allowedHosts = [] }: ServerOptio
 	async function staticFile(url: URL, res: ServerResponse) {
 		if (!uiRoot) {
 			res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-			return res.end('AgentBurn UI is not built. Run `npm run build`.');
+			return res.end('Burnboard UI is not built. Run `npm run build`.');
 		}
 		let rel: string;
 		try {
@@ -169,7 +169,7 @@ export function createAppServer({ store, uiDir, allowedHosts = [] }: ServerOptio
 		} catch (err) {
 			const status = err instanceof HttpError ? err.status : 500;
 			const message = err instanceof Error ? err.message : 'Internal error';
-			if (status === 500) console.error('[agentburn]', err);
+			if (status === 500) console.error('[burnboard]', err);
 			if (!res.headersSent) send(res, status, { error: message });
 			else res.end();
 		}

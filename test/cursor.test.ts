@@ -18,7 +18,7 @@ try {
 }
 
 const IMPORTS = join(CURSOR_FIXTURES, 'imports'); // contains cursor/*.csv
-const env = (over: Record<string, string> = {}) => fixturesEnv({ AGENTBURN_IMPORTS_DIR: IMPORTS, ...over });
+const env = (over: Record<string, string> = {}) => fixturesEnv({ BURNBOARD_IMPORTS_DIR: IMPORTS, ...over });
 
 describe('cursor CSV import', async () => {
 	const adapter = createCursorAdapter(env(), { csv: [join(CURSOR_FIXTURES, 'legacy-v1.csv'), join(CURSOR_FIXTURES, 'not-cursor.csv')] });
@@ -79,7 +79,7 @@ describe('cursor CSV import', async () => {
 
 /** Builds a Cursor `User` dir with the cursorDiskKV / ItemTable layout documented in src/adapters/cursor.ts. */
 function makeCursorUserDir(): string {
-	const dir = mkdtempSync(join(tmpdir(), 'agentburn-cursor-test-'));
+	const dir = mkdtempSync(join(tmpdir(), 'burnboard-cursor-test-'));
 	const g = join(dir, 'globalStorage');
 	mkdirSync(g, { recursive: true });
 	const db = new sqlite.DatabaseSync(join(g, 'state.vscdb'));

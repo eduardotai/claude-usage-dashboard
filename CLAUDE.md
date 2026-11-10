@@ -1,7 +1,7 @@
-# CLAUDE.md — working on AgentBurn
+# CLAUDE.md — working on Burnboard
 
-AgentBurn is a local-first, open-source (MIT) dashboard of token usage and
-**API-equivalent** cost across AI coding agents. One command (`npx agentburn`)
+Burnboard is a local-first, open-source (MIT) dashboard of token usage and
+**API-equivalent** cost across AI coding agents. One command (`npx burnboard`)
 starts a localhost server that serves both the JSON API and the built UI.
 
 ## Principles
@@ -20,7 +20,7 @@ starts a localhost server that serves both the JSON API and the built UI.
 
 ## Layout
 
-- `src/cli.ts` — `agentburn` bin (args, port fallback, open browser)
+- `src/cli.ts` — `burnboard` bin (args, port fallback, open browser)
 - `src/server.ts` — node:http server: `/api/*` + static SPA from `dist/ui`
 - `src/adapters/*` — one file per agent, each returns normalized `RawUsageRecord`s
   (`src/core/types.ts`). Add an agent = add an adapter + register it in `adapters/index.ts`.

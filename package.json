@@ -1,5 +1,5 @@
 {
-  "name": "agentburn",
+  "name": "burnboard",
   "version": "0.1.0",
   "description": "Local-first, open-source dashboard of token usage and API-equivalent cost across AI coding agents (Claude Code, Codex, Cursor).",
   "license": "MIT",
@@ -22,7 +22,7 @@
   ],
   "type": "module",
   "bin": {
-    "agentburn": "dist/server/cli.js"
+    "burnboard": "dist/server/cli.js"
   },
   "files": [
     "dist",

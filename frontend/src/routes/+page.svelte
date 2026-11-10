@@ -95,7 +95,7 @@
 </script>
 
 <svelte:head>
-	<title>AgentBurn{scopeNote ? ` · ${scopeNote}` : ''}</title>
+	<title>Burnboard{scopeNote ? ` · ${scopeNote}` : ''}</title>
 </svelte:head>
 
 <main class="page">
@@ -111,7 +111,7 @@
 				</svg>
 			</span>
 			<div>
-				<h1 class="serif title">AgentBurn</h1>
+				<h1 class="serif title">Burnboard</h1>
 				<p class="tagline">What your AI coding agents burn, in tokens and API-equivalent dollars · parsed locally, nothing leaves this machine</p>
 			</div>
 		</div>
@@ -125,9 +125,9 @@
 
 	{#if error}
 		<div class="panel error rise">
-			<strong>Couldn't reach the AgentBurn server.</strong>
+			<strong>Couldn't reach the Burnboard server.</strong>
 			<span>{error}</span>
-			<span class="hint">Make sure it is running: <code>npx agentburn</code></span>
+			<span class="hint">Make sure it is running: <code>npx burnboard</code></span>
 			<button class="retry" onclick={() => load()}>Try again</button>
 		</div>
 	{:else if !data}
@@ -159,7 +159,7 @@
 			<div class="panel onboarding rise" style="animation-delay: 60ms">
 				<span class="eyebrow">No agent logs found</span>
 				<h2 class="serif block-title">Nothing to burn yet</h2>
-				<p>AgentBurn reads each agent’s own files on this machine. Use one for a bit and hit refresh, or point AgentBurn at another folder, e.g. <code>npx agentburn --claude-dir /path/to/projects</code>.</p>
+				<p>Burnboard reads each agent’s own files on this machine. Use one for a bit and hit refresh, or point Burnboard at another folder, e.g. <code>npx burnboard --claude-dir /path/to/projects</code>.</p>
 			</div>
 			<div class="rise" style="animation-delay: 120ms">
 				<AgentCards agents={data.agents} selected={agent} onselect={setAgent} />
@@ -250,7 +250,7 @@
 							<strong>{grouped(data.summary.unmeasured_calls)} {data.summary.unmeasured_calls === 1 ? 'call has' : 'calls have'} no token counts on disk</strong>
 							({unmeasuredBy.map((a) => a.label).join(', ')}). They count toward calls, not toward tokens or cost, so totals here are a floor.
 							{#if unmeasuredBy.some((a) => a.id === 'cursor')}
-								For exact Cursor tokens, export the usage CSV from Cursor’s dashboard and drop it into <code>~/.agentburn/imports/cursor/</code>.
+								For exact Cursor tokens, export the usage CSV from Cursor’s dashboard and drop it into <code>~/.burnboard/imports/cursor/</code>.
 							{/if}
 						</p>
 					</aside>
@@ -332,7 +332,7 @@
 				</section>
 
 				<footer class="foot">
-					<span>AgentBurn v{data.meta.version} · open source (MIT) · local &amp; private</span>
+					<span>Burnboard v{data.meta.version} · open source (MIT) · local &amp; private</span>
 					<span>
 						Costs are API-equivalent estimates from
 						<a href="https://github.com/BerriAI/litellm" target="_blank" rel="noreferrer">LiteLLM</a> prices

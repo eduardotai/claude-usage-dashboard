@@ -16,7 +16,7 @@ export function fixturesEnv(over: Record<string, string> = {}): NodeJS.ProcessEn
 		CODEX_HOME: none,
 		GROK_HOME: none,
 		CURSOR_USER_DIR: none,
-		AGENTBURN_IMPORTS_DIR: none,
+		BURNBOARD_IMPORTS_DIR: none,
 		...over
 	};
 }

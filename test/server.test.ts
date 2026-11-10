@@ -13,7 +13,7 @@ let server: Server;
 let base: string;
 beforeAll(async () => {
 	const ui = await mkdtemp(join(tmpdir(), 'ab-ui-'));
-	await writeFile(join(ui, 'index.html'), '<!doctype html><title>AgentBurn</title>');
+	await writeFile(join(ui, 'index.html'), '<!doctype html><title>Burnboard</title>');
 	const store = new UsageStore(createAdapters(fixturesEnv()), testBook());
 	server = createAppServer({ store, uiDir: ui });
 	await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
@@ -40,7 +40,7 @@ const get = async (p: string) => {
 
 describe('HTTP API', () => {
 	it('health', async () => {
-		expect((await get('/api/health')).body).toMatchObject({ status: 'ok', name: 'agentburn' });
+		expect((await get('/api/health')).body).toMatchObject({ status: 'ok', name: 'burnboard' });
 	});
 
 	it('summary honours the agent filter', async () => {
@@ -73,7 +73,7 @@ describe('HTTP API', () => {
 	it('serves the UI with SPA fallback and blocks traversal', async () => {
 		const res = await fetch(base + '/some/deep/link');
 		expect(res.status).toBe(200);
-		expect(await res.text()).toContain('AgentBurn');
+		expect(await res.text()).toContain('Burnboard');
 		expect(await rawStatus('/..%2f..%2f..%2fetc%2fpasswd')).toBe(403);
 	});
 

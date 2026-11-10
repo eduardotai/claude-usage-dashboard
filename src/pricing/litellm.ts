@@ -4,19 +4,19 @@
  *
  * Resolution order when the server starts:
  *   1. fresh on-disk cache (< 24h old)
- *   2. live download (skipped with --offline / AGENTBURN_OFFLINE=1)
+ *   2. live download (skipped with --offline / BURNBOARD_OFFLINE=1)
  *   3. stale on-disk cache
  *   4. the snapshot bundled in the npm package
  *
- * The download is the only network request AgentBurn ever makes, and it sends
+ * The download is the only network request Burnboard ever makes, and it sends
  * nothing about you: it is a plain GET of a public JSON file.
  *
  * Models we cannot find are NOT priced at $0: their cost is `null` and they are
  * reported as unpriced so the UI can say so.
  */
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { defaultCacheDir } from '../imports.js';
 import { SNAPSHOT_PATH } from '../paths.js';
 import type { RawUsageRecord } from '../core/types.js';
 
@@ -78,7 +78,7 @@ export class PriceBook {
 		private readonly table: PriceTable,
 		readonly info: PricingInfo,
 		/**
-		 * The snapshot bundled with this AgentBurn version. Models the active table lacks (an old
+		 * The snapshot bundled with this Burnboard version. Models the active table lacks (an old
 		 * cache, a trimmed mirror) are priced from it, so a model's price never depends on which
 		 * source happened to load, only on whether a newer price exists.
 		 */
@@ -150,11 +150,7 @@ export class PriceBook {
 
 // --- Loading ---------------------------------------------------------------
 
-export function defaultCacheDir(env: NodeJS.ProcessEnv = process.env): string {
-	if (env.AGENTBURN_CACHE_DIR) return env.AGENTBURN_CACHE_DIR;
-	if (process.platform === 'win32' && env.LOCALAPPDATA) return join(env.LOCALAPPDATA, 'agentburn', 'cache');
-	return join(env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'agentburn');
-}
+export { defaultCacheDir };
 
 
 function isPriceTable(v: unknown): v is PriceTable {

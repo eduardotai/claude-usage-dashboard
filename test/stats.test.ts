@@ -73,7 +73,7 @@ describe('multi-agent aggregations', () => {
 	beforeAll(async () => {
 		const { CODEX_HOME_FIXTURE, GROK_HOME_FIXTURE, CURSOR_FIXTURES } = await import('./helpers.js');
 		const { join } = await import('node:path');
-		const env = fixturesEnv({ CODEX_HOME: CODEX_HOME_FIXTURE, GROK_HOME: GROK_HOME_FIXTURE, AGENTBURN_IMPORTS_DIR: join(CURSOR_FIXTURES, 'imports') });
+		const env = fixturesEnv({ CODEX_HOME: CODEX_HOME_FIXTURE, GROK_HOME: GROK_HOME_FIXTURE, BURNBOARD_IMPORTS_DIR: join(CURSOR_FIXTURES, 'imports') });
 		all = await new UsageStore(createAdapters(env), testBook()).all();
 	});
 

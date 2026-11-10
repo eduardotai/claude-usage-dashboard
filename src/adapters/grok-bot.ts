@@ -115,13 +115,13 @@ function unifiedAdapter(
 
 export function createGrokBotAdapter(env: NodeJS.ProcessEnv = process.env, opts: GrokUnifiedOptions = {}): Adapter {
 	return unifiedAdapter('grok-bot', 'Grok Bot', 'grok.com usage export (CSV), product grok-bot', (r) => r.product === 'grok-bot', env, opts, {
-		note: 'Grok Bot runs in the cloud and keeps no local logs. Export your usage at grok.com/dashboard → Usage and drop the CSV into ~/.agentburn/imports/grok/.',
+		note: 'Grok Bot runs in the cloud and keeps no local logs. Export your usage at grok.com/dashboard → Usage and drop the CSV into ~/.burnboard/imports/grok/.',
 		finalize(records, prices) {
 			const unmodelled = records.filter((r) => r.model === GROK_BOT_MODEL);
 			if (!unmodelled.length) return [];
 			// Infer against the pinned (bundled) table first so the answer is the same online,
 			// offline, with a fresh or an old cache. Only if the bill matches no rate there (a
-			// rate newer than this AgentBurn version) look at the active table.
+			// rate newer than this Burnboard version) look at the active table.
 			let m = matchBilledRate(unmodelled, prices.pinned());
 			let pinned = true;
 			if (!m.key && m.billed && !m.matches.length && prices.pinned() !== prices) {
