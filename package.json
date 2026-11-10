@@ -1,7 +1,7 @@
 {
   "name": "burnboard",
   "version": "0.1.0",
-  "description": "Local-first, open-source dashboard of token usage and API-equivalent cost across AI coding agents (Claude Code, Codex, Cursor).",
+  "description": "Local-first, open-source dashboard of token usage and API-equivalent cost across AI coding agents (Claude Code, Codex CLI, Cursor, Grok Build, Grok Bot).",
   "license": "MIT",
   "author": "eduardotai",
   "homepage": "https://github.com/eduardotai/claude-usage-dashboard#readme",
@@ -13,6 +13,7 @@
     "claude-code",
     "codex",
     "cursor",
+    "grok",
     "tokens",
     "usage",
     "cost",
