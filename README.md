@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔥 AgentBurn
+# 🔥 Burnboard
 
 **What your AI coding agents burn — in tokens and API-equivalent dollars.**
 
@@ -9,26 +9,26 @@ One command, a polished web UI, and honest numbers: every figure says whether it
 **measured**, **estimated** or is **unavailable**.
 
 ```bash
-npx agentburn
+npx burnboard
 ```
 
-![AgentBurn dashboard (synthetic demo data)](docs/preview.webp)
+![Burnboard dashboard (synthetic demo data)](docs/preview.webp)
 
 </div>
 
 ## Why
 
 Terminal tools like [ccusage](https://github.com/ccusage/ccusage) and
-[tokscale](https://github.com/junhoyeo/tokscale) are great. AgentBurn is for when you
+[tokscale](https://github.com/junhoyeo/tokscale) are great. Burnboard is for when you
 want to *look* at your usage: a calm, fast web dashboard that opens with one command,
 works across agents, and is explicit about where every number comes from.
 
-- **One command.** `npx agentburn` scans your logs, starts a server on `localhost`, opens your browser.
+- **One command.** `npx burnboard` scans your logs, starts a server on `localhost`, opens your browser.
 - **Honest provenance.** Tokens are *measured* from your agent's logs. Cost is an
   *estimate* at public API prices. Models without a public price are flagged as
   *unavailable* and left out of the total — never silently counted as $0.
 - **Correct counts.** Claude Code writes one API response as several log lines and copies
-  messages into resumed sessions. AgentBurn de-duplicates them (see [How counting works](#how-counting-works)),
+  messages into resumed sessions. Burnboard de-duplicates them (see [How counting works](#how-counting-works)),
   which a naive line-by-line sum counts two or three times.
 - **100% local.** Your logs never leave your machine. No accounts, no telemetry.
 
@@ -39,7 +39,7 @@ works across agents, and is explicit about where every number comes from.
 - 7D / 30D / 90D / All ranges, filter by agent and by project (click a project to drill down)
 - One overview across agents: daily burn chart stacked by agent (tokens or cost), model split,
   top projects, a year-long activity heatmap
-- Per-agent cards: detected / not found / planned, where AgentBurn looked, how to get data in,
+- Per-agent cards: detected / not found / planned, where Burnboard looked, how to get data in,
   and how much of each agent's usage has measured tokens
 - Subagent (sidechain) calls included and labelled
 - Refresh re-scans logs without restarting
@@ -50,33 +50,33 @@ Requires Node.js 20+.
 
 > **Pre-release:** the package is not on npm yet. Until it is, run it from source:
 > `git clone … && npm install && npm run build && node dist/server/cli.js`
-> (or `npm pack` and `npx ./agentburn-0.1.0.tgz`).
+> (or `npm pack` and `npx ./burnboard-0.1.0.tgz`).
 
 ```bash
-npx agentburn                # scan, serve on http://localhost:4317, open the browser
-npx agentburn --no-open      # don't open the browser
-npx agentburn --offline      # never download prices (uses cache or the bundled table)
-npx agentburn --port 8080    # pick a port (falls back to the next free one)
-npx agentburn --claude-dir ~/backup/claude/projects
+npx burnboard                # scan, serve on http://localhost:4317, open the browser
+npx burnboard --no-open      # don't open the browser
+npx burnboard --offline      # never download prices (uses cache or the bundled table)
+npx burnboard --port 8080    # pick a port (falls back to the next free one)
+npx burnboard --claude-dir ~/backup/claude/projects
 ```
 
-Or install globally: `npm i -g agentburn && agentburn`.
+Or install globally: `npm i -g burnboard && burnboard`.
 
 | Option / env | What it does |
 | --- | --- |
 | `-p, --port` / `PORT` | Port (default `4317`) |
 | `--host` | Interface to bind (default `127.0.0.1`, loopback only) |
 | `--no-open` | Don't open a browser |
-| `--offline` / `AGENTBURN_OFFLINE=1` | Skip the price download |
+| `--offline` / `BURNBOARD_OFFLINE=1` | Skip the price download |
 | `--claude-dir` / `CLAUDE_LOGS_DIR` | Claude Code log root(s), comma-separated |
 | `CLAUDE_CONFIG_DIR` | Claude Code config dir(s); `<dir>/projects` is scanned |
 | `--codex-home` / `CODEX_HOME` | Codex home(s), comma-separated (default `~/.codex`) |
 | `--grok-home` / `GROK_HOME` | Grok Build home (default `~/.grok`) |
-| `--cursor-csv` / `AGENTBURN_CURSOR_CSV` | Cursor usage CSV export(s), files or folders (repeatable / comma-separated) |
+| `--cursor-csv` / `BURNBOARD_CURSOR_CSV` | Cursor usage CSV export(s), files or folders (repeatable / comma-separated) |
 | `--cursor-dir` / `CURSOR_USER_DIR` | Cursor's `User` settings dir (holds `globalStorage/state.vscdb`) |
-| `--grok-csv` / `AGENTBURN_GROK_CSV` | grok.com usage export(s), files or folders (repeatable / comma-separated) |
-| `AGENTBURN_IMPORTS_DIR` | Drop folder for imports (default `~/.agentburn/imports`; Cursor CSVs go in `cursor/`, grok.com exports in `grok/`) |
-| `AGENTBURN_CACHE_DIR` | Where the price table is cached |
+| `--grok-csv` / `BURNBOARD_GROK_CSV` | grok.com usage export(s), files or folders (repeatable / comma-separated) |
+| `BURNBOARD_IMPORTS_DIR` | Drop folder for imports (default `~/.burnboard/imports`; Cursor CSVs go in `cursor/`, grok.com exports in `grok/`). If you previously used AgentBurn, files already in `~/.agentburn/imports` are still read. |
+| `BURNBOARD_CACHE_DIR` | Where the price table is cached |
 
 ## Where the data comes from
 
@@ -84,16 +84,16 @@ Or install globally: `npm i -g agentburn && agentburn`.
 | --- | --- | --- | --- | --- |
 | Claude Code | ✅ | `~/.claude/projects/**/*.jsonl`, `~/.config/claude/projects/**/*.jsonl` (incl. `subagents/`) | measured | estimated |
 | Codex CLI | ✅ | `~/.codex/sessions/**/rollout-*.jsonl` and `~/.codex/archived_sessions/`, incl. `.jsonl.zst` (needs Node 22.15+) | measured | estimated |
-| Cursor | ✅ | 1. usage CSV you export (dropped in `~/.agentburn/imports/cursor/`) · 2. `cursor` rows of the grok.com export (X Subscription) · 3. local `state.vscdb` (read-only copy; needs Node 22.5+) | measured from the exports; usually *unavailable* from the DB | estimated (Claude/GPT ids); *unavailable* for Cursor-only models; **billed** from the grok.com export |
+| Cursor | ✅ | 1. usage CSV you export (dropped in `~/.burnboard/imports/cursor/`) · 2. `cursor` rows of the grok.com export (X Subscription) · 3. local `state.vscdb` (read-only copy; needs Node 22.5+) | measured from the exports; usually *unavailable* from the DB | estimated (Claude/GPT ids); *unavailable* for Cursor-only models; **billed** from the grok.com export |
 | Grok Build | ✅ | `~/.grok/sessions/<cwd>/<session>/updates.jsonl` (+ `summary.json`) | measured | **measured** when Grok Build recorded it, else estimated |
-| Grok Bot | ✅ | grok.com usage export (dropped in `~/.agentburn/imports/grok/`); nothing local exists | measured | **billed** (actual charge) + estimated, see [below](#grok-bot-and-the-x-subscription) |
+| Grok Bot | ✅ | grok.com usage export (dropped in `~/.burnboard/imports/grok/`); nothing local exists | measured | **billed** (actual charge) + estimated, see [below](#grok-bot-and-the-x-subscription) |
 | Grok apps | ✅ | same export: Grok chat, voice, imagine | measured for chat; voice/imagine have no tokens | billed + estimated where a model is given |
 | Gemini CLI | 🗺 planned | — | | |
 
 Cursor's `User` dir is `~/Library/Application Support/Cursor/User` (macOS),
 `~/.config/Cursor/User` (Linux) or `%APPDATA%\Cursor\User` (Windows).
 
-AgentBurn only **reads** these files. It never writes to them, and never uses the login
+Burnboard only **reads** these files. It never writes to them, and never uses the login
 tokens stored next to them.
 
 ### Limitations
@@ -101,14 +101,14 @@ tokens stored next to them.
 - **Cursor's local DB rarely has tokens.** `state.vscdb` stores a `tokenCount` per message, but
   Cursor staff describe it as best-effort and it is `0/0` for almost all messages
   ([forum](https://forum.cursor.com/t/cursordiskkv-table-records-always-show-0-for-tokencount/155984)).
-  AgentBurn counts each request you sent as a call and marks its tokens *unavailable*,
+  Burnboard counts each request you sent as a call and marks its tokens *unavailable*,
   never 0. For real numbers, export the usage CSV from Cursor's web dashboard (Usage → Export)
-  and drop it into `~/.agentburn/imports/cursor/`. Where CSV and DB overlap in time, the
+  and drop it into `~/.burnboard/imports/cursor/`. Where CSV and DB overlap in time, the
   CSV wins. The CSV has no project column, so its rows show as project `(cursor export)`.
 - **Cursor-only models** (`composer-*`, `cursor-grok-*`, `auto`/`default`) have no public
   per-token price, so their cost is *unavailable*. Claude models are renamed to their API id
   only by exact rules (`claude-4.5-sonnet-thinking` → `claude-sonnet-4-5`).
-- **Codex forks/subagents** replay the parent's history at the fork; AgentBurn skips that
+- **Codex forks/subagents** replay the parent's history at the fork; Burnboard skips that
   initial burst (same heuristic as ccusage). A fork that does real work within its first
   second could be slightly undercounted.
 - **Codex `.zst` rollouts** need Node 22.15+ (zstd); on older Node they are skipped and the
@@ -121,7 +121,7 @@ tokens stored next to them.
 
 ### What can differ between machines
 
-AgentBurn aims to give the same numbers for the same files everywhere. Known differences:
+Burnboard aims to give the same numbers for the same files everywhere. Known differences:
 
 | Behaviour | Depends on | What happens |
 |---|---|---|
@@ -129,7 +129,7 @@ AgentBurn aims to give the same numbers for the same files everywhere. Known dif
 | Codex `.jsonl.zst` rollouts | Node 22.15+ (zstd) | skipped on older Node, counted in a warning |
 | Day boundaries | your local timezone | days are bucketed in local time, like your agent's own UI |
 | Estimated cost of ordinary records | price source and its age | newer LiteLLM lists can add or reprice models; the footer names the source (`live`, `cache`, `stale-cache`, `bundled`). Use `--offline` for the bundled snapshot only |
-| Grok Bot estimate | AgentBurn version only | pinned to the bundled snapshot (see above) |
+| Grok Bot estimate | Burnboard version only | pinned to the bundled snapshot (see above) |
 | grok.com export re-saved by Excel/Sheets | locale | `;` or tab delimiters, decimal commas (`0,0426`) and grouped counts (`1.204`) are read correctly |
 | Non-USD `Pricing Currency` | export | billed amount left *unavailable* rather than mixed with USD |
 
@@ -142,12 +142,12 @@ usage pool, viewed at grok.com/dashboard → Usage
 cloud and keeps no logs on your machine, so its only source is that page's **Export**:
 
 1. grok.com/dashboard → Usage → Export.
-2. Drop the CSV into `~/.agentburn/imports/grok/` (or `npx agentburn --grok-csv <file>`).
+2. Drop the CSV into `~/.burnboard/imports/grok/` (or `npx burnboard --grok-csv <file>`).
    Overlapping exports are fine: rows are de-duplicated by `Billing Item ID`.
 
 The export has one row per billable event:
 `Billing Item ID, Event Time, Product, Charge Category, Usage Type, Principal Type, Principal ID, Usage, Pricing Currency, Pricing Contracted, Model, User Email`.
-AgentBurn maps `Product` to agents: `grok-bot` → **Grok Bot**, `cursor` → **Cursor**,
+Burnboard maps `Product` to agents: `grok-bot` → **Grok Bot**, `cursor` → **Cursor**,
 everything else (`grok-chat`, `grok-voice`, `grok-imagine`) → **Grok apps**. It never reads
 the `User Email` or `Principal ID` columns.
 
@@ -164,7 +164,7 @@ What we verified on a real export (Nov 2026, ~4.2k rows):
   `Pricing Contracted` is the amount actually charged in USD.
 - Grok Bot rows carry no `Model`. Grok chat rows do (e.g. `grok-4.7`), with differently
   spelled keys (`Prompt text tokens`). Voice and Imagine use `Audio seconds` and
-  `Generated image`, which AgentBurn counts as calls without tokens.
+  `Generated image`, which Burnboard counts as calls without tokens.
 - Rows whose four token counts are all 0 are kept as measured zeros.
 
 **Billed vs. API-equivalent.** For export rows the dashboard shows both:
@@ -172,13 +172,13 @@ What we verified on a real export (Nov 2026, ~4.2k rows):
 - **Billed** (*measured*) is what xAI actually charged: $0 for plan-included usage, plus any
   on-demand charges.
 - **Est. API cost** (*estimated*) is what the same tokens would cost at API list prices, as
-  for every other agent. Grok Bot rows have no model, so AgentBurn checks which xAI list
+  for every other agent. Grok Bot rows have no model, so Burnboard checks which xAI list
   price reproduces **every** on-demand charge in your export. The match runs against the
-  price snapshot **bundled with your AgentBurn version**, and the matched rows are priced
+  price snapshot **bundled with your Burnboard version**, and the matched rows are priced
   from that snapshot too, so the same export gives the same estimate on every machine:
   online or offline, fresh install or old cache, whatever the live LiteLLM list holds that
-  day. Only if the snapshot has no matching rate (a model newer than your AgentBurn) does
-  AgentBurn try the current price table. Matching models are compared by what they would
+  day. Only if the snapshot has no matching rate (a model newer than your Burnboard) does
+  Burnboard try the current price table. Matching models are compared by what they would
   charge for each row of your export, not by their raw price-table entries, so several
   models with the same effective rate (e.g. `grok-4.6` and `grok-4.7`) count as one rate,
   and the card names them. If no rate matches, the export has no on-demand rows, or the
@@ -198,7 +198,7 @@ has no billing id. The local DB only fills gaps that neither export covers.
 - The UI makes no third-party requests (fonts are bundled).
 - The **only** network request is a plain `GET` of LiteLLM's public price table
   ([`model_prices_and_context_window.json`](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)),
-  at most once a day, cached in `~/.cache/agentburn`. Nothing about you is sent.
+  at most once a day, cached in `~/.cache/burnboard`. Nothing about you is sent.
   Use `--offline` to skip it.
 
 ## About the cost figures
@@ -206,12 +206,12 @@ has no billing id. The local DB only fills gaps that neither export covers.
 > **Cost is an API-equivalent estimate, not your bill.**
 
 If you're on a subscription (Claude Pro/Max, ChatGPT Plus/Pro, Cursor or X plans), you don't
-pay per token. AgentBurn shows what the same tokens would cost at public API list prices,
+pay per token. Burnboard shows what the same tokens would cost at public API list prices,
 for perspective. Details:
 
 - Prices come from LiteLLM. Resolution order: fresh disk cache (<24h) → live download →
   stale cache → the snapshot bundled in the package. A stale cache that is older than the
-  bundled snapshot (e.g. after upgrading AgentBurn while offline) is skipped in favour of
+  bundled snapshot (e.g. after upgrading Burnboard while offline) is skipped in favour of
   the snapshot. A model missing from the table in use is looked up in the snapshot. The
   footer shows which source is in use.
 - Input, output, cache read, 5-minute and 1-hour cache writes are priced separately;
@@ -225,7 +225,7 @@ for perspective. Details:
   separately. Usage included in a plan bills $0, so billed and estimated figures aren't
   comparable.
 - **Grok Build records its own cost** for each turn (`costUsdTicks`, xAI list price). When it
-  is present AgentBurn uses it and marks the cost *measured*; it is still the API price, not
+  is present Burnboard uses it and marks the cost *measured*; it is still the API price, not
   what your plan charges.
 - Batch, priority and regional pricing, web search fees and discounts are not modelled.
 
@@ -235,7 +235,7 @@ for perspective. Details:
 
 - Only `assistant` entries with a `message.usage` block count. Each is one model call.
 - **Split entries:** one API response is logged as several lines (thinking, text, tool use),
-  each repeating the same `message.id`, `requestId` and usage. AgentBurn de-duplicates on
+  each repeating the same `message.id`, `requestId` and usage. Burnboard de-duplicates on
   `message.id + requestId`, keeping the most complete entry (largest output count).
 - **Resumed sessions** copy earlier messages into a new file; the same global de-duplication
   counts them once (attributed to the session where they first appeared).
@@ -252,7 +252,7 @@ for perspective. Details:
 pitfalls: ccusage [#876](https://github.com/ccusage/ccusage/issues/876), [#884](https://github.com/ccusage/ccusage/issues/884), [#1288](https://github.com/ccusage/ccusage/issues/1288))
 
 - Each `token_count` event carries a running `total_token_usage` for the session. Codex
-  re-emits identical snapshots, so AgentBurn counts only when the total **advances**, and
+  re-emits identical snapshots, so Burnboard counts only when the total **advances**, and
   counts the difference. Summing every event's `last_token_usage` overcounts.
 - If a resumed session's total goes down, that event starts a new baseline.
 - `cached_input_tokens` (and `cache_write_input_tokens`) are **inside** `input_tokens`;
@@ -303,7 +303,7 @@ accepts `start`, `end` (`yyyy-mm-dd`), `project` and `agent` (e.g. `claude-code`
 ## Develop
 
 ```bash
-git clone https://github.com/eduardotai/claude-usage-dashboard agentburn && cd agentburn
+git clone https://github.com/eduardotai/claude-usage-dashboard burnboard && cd burnboard
 npm install
 npm run demo:logs                               # synthetic multi-agent logs in ./sample-logs
 npm run dev -- --claude-dir ./sample-logs/claude --codex-home ./sample-logs/codex \
@@ -325,7 +325,7 @@ in `src/adapters/index.ts`, and add fixtures that reproduce the agent's real log
 
 ## Roadmap
 
-- [x] TypeScript rewrite, one-command `npx agentburn`, zero runtime dependencies
+- [x] TypeScript rewrite, one-command `npx burnboard`, zero runtime dependencies
 - [x] Claude Code adapter with de-duplication and subagent policy
 - [x] LiteLLM pricing with cache + offline fallback; unknown models flagged
 - [x] Codex CLI adapter (running totals, forks, archives, `.zst`)
@@ -340,4 +340,4 @@ in `src/adapters/index.ts`, and add fixtures that reproduce the agent's real log
 
 ## License
 
-[MIT](LICENSE) © eduardotai. AgentBurn is not affiliated with Anthropic, OpenAI, Cursor, xAI or Google.
+[MIT](LICENSE) © eduardotai. Burnboard is not affiliated with Anthropic, OpenAI, Cursor, xAI or Google.

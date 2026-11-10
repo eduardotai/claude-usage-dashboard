@@ -15,10 +15,10 @@
 	const HINTS: Record<string, string> = {
 		'claude-code': 'Use Claude Code, or point at another folder with --claude-dir.',
 		codex: 'Use Codex CLI, or set --codex-home / CODEX_HOME.',
-		cursor: 'Export usage from Cursor’s dashboard into ~/.agentburn/imports/cursor/, or on the X Subscription the grok.com export into ~/.agentburn/imports/grok/.',
+		cursor: 'Export usage from Cursor’s dashboard into ~/.burnboard/imports/cursor/, or on the X Subscription the grok.com export into ~/.burnboard/imports/grok/.',
 		'grok-build': 'Use Grok Build, or set --grok-home / GROK_HOME.',
-		'grok-bot': 'Grok Bot runs in the cloud. Export usage at grok.com/dashboard → Usage and drop the CSV into ~/.agentburn/imports/grok/ (or pass --grok-csv).',
-		'grok-apps': 'Grok chat, voice and imagine come from the same grok.com usage export (~/.agentburn/imports/grok/).'
+		'grok-bot': 'Grok Bot runs in the cloud. Export usage at grok.com/dashboard → Usage and drop the CSV into ~/.burnboard/imports/grok/ (or pass --grok-csv).',
+		'grok-apps': 'Grok chat, voice and imagine come from the same grok.com usage export (~/.burnboard/imports/grok/).'
 	};
 
 	type State = 'detected' | 'idle' | 'missing' | 'planned';

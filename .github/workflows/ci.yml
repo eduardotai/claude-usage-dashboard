@@ -43,9 +43,9 @@ jobs:
           mkdir -p "$SMOKE"
           cd "$SMOKE"
           npm init -y >/dev/null
-          npm install "$GITHUB_WORKSPACE"/agentburn-*.tgz
+          npm install "$GITHUB_WORKSPACE"/burnboard-*.tgz
           FX="$GITHUB_WORKSPACE/test/fixtures"
-          AGENTBURN_OFFLINE=1 npx agentburn --no-open --port 4417 --claude-dir "$FX/claude" \
+          BURNBOARD_OFFLINE=1 npx burnboard --no-open --port 4417 --claude-dir "$FX/claude" \
             --codex-home "$FX/codex/home" --grok-home "$FX/grok/home" --cursor-csv "$FX/cursor/imports/cursor" --grok-csv "$FX/grok-unified" &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4417/api/health && break; sleep 1; done
           curl -sf "http://127.0.0.1:4417/api/stats/summary?agent=claude-code" | grep -q '"total_messages":6'

@@ -18,3 +18,4 @@ sample-logs/
 *unified-usage*.csv
 /imports/
 /agentburn-private/
+/burnboard-private/

@@ -1,6 +1,6 @@
 import type { AgentInfo, DailyResponse, DashboardData, HeatmapResponse, Meta, ModelStat, ProjectStat, Summary } from './types';
 
-// Same origin as the AgentBurn server (Vite proxies /api in dev).
+// Same origin as the Burnboard server (Vite proxies /api in dev).
 const BASE = '';
 
 export interface DashboardFilters {

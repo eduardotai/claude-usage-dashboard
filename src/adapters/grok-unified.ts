@@ -1,8 +1,8 @@
 /**
  * Grok "unified usage" export: the account-wide CSV from grok.com/dashboard → Usage → Export.
  * Under the X Subscription it lists every billable event across products (Grok Bot, Cursor,
- * Grok chat/voice/imagine). Read-only import: drop it in ~/.agentburn/imports/grok/ or pass
- * --grok-csv. AgentBurn never downloads it.
+ * Grok chat/voice/imagine). Read-only import: drop it in ~/.burnboard/imports/grok/ or pass
+ * --grok-csv. Burnboard never downloads it. CSVs already in ~/.agentburn/imports/grok/ are still read.
  *
  * Header (verified on a real export, 2026-11-09; columns are resolved by name):
  *   Billing Item ID,Event Time,Product,Charge Category,Usage Type,Principal Type,Principal ID,
@@ -19,13 +19,14 @@
  * - `Usage Type` is `included` (inside the plan, charged $0) or `on_demand`; `Pricing
  *   Contracted` is what was actually charged in `Pricing Currency` (USD).
  * - `Model` is empty for Grok Bot (and voice/imagine) rows.
- * - `User Email` and `Principal ID` are personal; AgentBurn never reads them.
+ * - `User Email` and `Principal ID` are personal; Burnboard never reads them.
  */
 import { readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { findFiles } from './fs.js';
 import { parseCount, parseCsv } from './csv.js';
+import { defaultImportDirs, envVar } from '../imports.js';
 import { emptyStats, type AdapterScanStats } from '../core/types.js';
 
 export interface GrokUnifiedOptions {
@@ -50,11 +51,8 @@ export interface GrokUnifiedRow {
 const expand = (p: string) => resolve(p.replace(/^~(?=$|[\\/])/, homedir()));
 
 export function grokUnifiedSources(env: NodeJS.ProcessEnv = process.env, opts: GrokUnifiedOptions = {}): string[] {
-	const fromEnv = (env.AGENTBURN_GROK_CSV ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-	const importDir = env.AGENTBURN_IMPORTS_DIR?.trim()
-		? join(expand(env.AGENTBURN_IMPORTS_DIR.trim()), 'grok')
-		: join(homedir(), '.agentburn', 'imports', 'grok');
-	return [...new Set([...(opts.csv ?? []), ...fromEnv].map(expand).concat(importDir))];
+	const fromEnv = (envVar(env, 'GROK_CSV') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+	return [...new Set([...(opts.csv ?? []), ...fromEnv].map(expand).concat(defaultImportDirs('grok', env)))];
 }
 
 const normKey = (k: string) => k.trim().toLowerCase().replace(/[\s_]+/g, '-');

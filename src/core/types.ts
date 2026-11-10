@@ -9,7 +9,7 @@
 export type Provenance =
 	/** Read directly from the agent's own logs. */
 	| 'measured'
-	/** Derived by AgentBurn (e.g. cost = tokens x public API price). */
+	/** Derived by Burnboard (e.g. cost = tokens x public API price). */
 	| 'estimated'
 	/** The agent does not record it, or we cannot price it. */
 	| 'unavailable';

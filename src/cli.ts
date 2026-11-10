@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `npx agentburn` — scan local agent logs, serve the dashboard on localhost, open the browser.
+ * `npx burnboard` — scan local agent logs, serve the dashboard on localhost, open the browser.
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -14,9 +14,9 @@ import { createAppServer } from './server.js';
 import { UI_DIR } from './paths.js';
 import { VERSION } from './version.js';
 
-const HELP = `AgentBurn ${VERSION} — local dashboard of AI coding agent usage and API-equivalent cost
+const HELP = `Burnboard ${VERSION} — local dashboard of AI coding agent usage and API-equivalent cost
 
-Usage: agentburn [options]
+Usage: burnboard [options]
 
 Options:
   -p, --port <n>        Port to listen on (default 4317; next free port if taken)
@@ -27,11 +27,13 @@ Options:
       --codex-home <p>  Codex home (default ~/.codex; env CODEX_HOME)
       --grok-home <p>   Grok Build home (default ~/.grok; env GROK_HOME)
       --cursor-csv <p>  Cursor usage CSV export, file or folder (repeatable;
-                        also read from ~/.agentburn/imports/cursor/)
+                        also read from ~/.burnboard/imports/cursor/, and from
+                        ~/.agentburn/imports/cursor/ if you used AgentBurn)
       --cursor-dir <p>  Cursor "User" settings dir (env CURSOR_USER_DIR)
       --grok-csv <p>    grok.com usage export (Grok Bot, Cursor on the X Subscription,
                         Grok apps), file or folder (repeatable; also read from
-                        ~/.agentburn/imports/grok/)
+                        ~/.burnboard/imports/grok/, and from ~/.agentburn/imports/grok/
+                        if you used AgentBurn)
   -v, --version         Print version
   -h, --help            Show this help
 
@@ -39,12 +41,13 @@ Environment:
   CLAUDE_LOGS_DIR       Comma-separated Claude Code log roots
   CODEX_HOME            Comma-separated Codex homes
   GROK_HOME             Grok Build home
-  AGENTBURN_CURSOR_CSV  Comma-separated Cursor CSV files or folders
+  BURNBOARD_CURSOR_CSV  Comma-separated Cursor CSV files or folders
   CURSOR_USER_DIR       Cursor "User" dir (holds globalStorage/state.vscdb)
-  AGENTBURN_GROK_CSV    Comma-separated grok.com usage exports (files or folders)
-  AGENTBURN_IMPORTS_DIR Import drop folder (default ~/.agentburn/imports)
-  AGENTBURN_OFFLINE=1   Same as --offline
-  AGENTBURN_CACHE_DIR   Where the downloaded price table is cached
+  BURNBOARD_GROK_CSV    Comma-separated grok.com usage exports (files or folders)
+  BURNBOARD_IMPORTS_DIR Import drop folder (default ~/.burnboard/imports;
+                        ~/.agentburn/imports is still read as a fallback)
+  BURNBOARD_OFFLINE=1   Same as --offline
+  BURNBOARD_CACHE_DIR   Where the downloaded price table is cached
 
 Everything runs on this machine. The only network request is an optional
 download of LiteLLM's public price table (disable with --offline).`;
@@ -126,7 +129,7 @@ async function main() {
 	const port = Number(v.port);
 	if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid --port: ${v.port}`);
 	const host = String(v.host);
-	const offline = v.offline === true || process.env.AGENTBURN_OFFLINE === '1';
+	const offline = v.offline === true || process.env.BURNBOARD_OFFLINE === '1' || process.env.AGENTBURN_OFFLINE === '1';
 	const env = { ...process.env };
 	if (typeof v['claude-dir'] === 'string') env.CLAUDE_LOGS_DIR = v['claude-dir'];
 	if (typeof v['codex-home'] === 'string') env.CODEX_HOME = v['codex-home'];
@@ -149,7 +152,7 @@ async function main() {
 
 	const dim = (s: string) => (process.stdout.isTTY ? `\x1b[2m${s}\x1b[0m` : s);
 	const clay = (s: string) => (process.stdout.isTTY ? `\x1b[38;2;217;119;87m${s}\x1b[0m` : s);
-	console.log(`\n  ${clay('● AgentBurn')} ${dim(`v${VERSION}`)}\n`);
+	console.log(`\n  ${clay('● Burnboard')} ${dim(`v${VERSION}`)}\n`);
 	for (const a of store.agentStatuses().filter((s) => s.status === 'available')) {
 		const s = a.scan;
 		console.log(`  ${a.label.padEnd(12)} ${s ? `${s.records.toLocaleString()} records from ${s.files} ${s.files === 1 ? 'file' : 'files'}` : 'no data'}${s?.duplicatesDropped ? dim(` (${s.duplicatesDropped.toLocaleString()} duplicate entries dropped)`) : ''}`);
@@ -171,6 +174,6 @@ async function main() {
 }
 
 main().catch((err) => {
-	console.error(`agentburn: ${err instanceof Error ? err.message : String(err)}`);
+	console.error(`burnboard: ${err instanceof Error ? err.message : String(err)}`);
 	process.exit(1);
 });

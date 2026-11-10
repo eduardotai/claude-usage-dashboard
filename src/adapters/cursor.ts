@@ -9,8 +9,8 @@
  *    plain input; the four buckets are disjoint and sum to Total Tokens.
  *    Sources (read 2026-11-09): whospentit.com/blog/cursor-usage-csv-export (verified 601-row header),
  *    docs.rs/tokmesh-core sessions::cursor (v1/v2/v3 headers), github.com/miiiiiiich/agent-walker docs/cursor.md.
- *    AgentBurn never downloads it for you (that needs your Cursor session token); you export it
- *    and drop it in ~/.agentburn/imports/cursor/ (or pass --cursor-csv).
+ *    Burnboard never downloads it for you (that needs your Cursor session token); you export it
+ *    and drop it in ~/.burnboard/imports/cursor/ (or pass --cursor-csv). CSVs already in ~/.agentburn/imports/cursor/ are still read.
  *    Rows have no project/session: they show as project "(cursor export)".
  *
  * 2. Local state DB, read-only, as a fallback for calls the CSV does not cover:
@@ -42,6 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { findFiles, isDirectory, projectNameFromPath } from './fs.js';
 import { parseCount, parseCsv } from './csv.js';
 import { grokUnifiedSources, loadGrokUnified } from './grok-unified.js';
+import { defaultImportDirs, envVar } from '../imports.js';
 import { emptyStats, type Adapter, type AdapterResult, type AdapterScanStats, type RawUsageRecord } from '../core/types.js';
 
 export interface CursorOptions {
@@ -62,11 +63,8 @@ export function cursorUserDir(env: NodeJS.ProcessEnv = process.env, platform = p
 }
 
 export function cursorCsvSources(env: NodeJS.ProcessEnv = process.env, opts: CursorOptions = {}): string[] {
-	const fromEnv = (env.AGENTBURN_CURSOR_CSV ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-	const importDir = env.AGENTBURN_IMPORTS_DIR?.trim()
-		? join(expand(env.AGENTBURN_IMPORTS_DIR.trim()), 'cursor')
-		: join(homedir(), '.agentburn', 'imports', 'cursor');
-	return [...new Set([...(opts.csv ?? []), ...fromEnv].map(expand).concat(importDir))];
+	const fromEnv = (envVar(env, 'CURSOR_CSV') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+	return [...new Set([...(opts.csv ?? []), ...fromEnv].map(expand).concat(defaultImportDirs('cursor', env)))];
 }
 
 // --- Model aliases (exact renames only; no family guessing) ----------------
@@ -163,7 +161,7 @@ async function openSqliteCopy(file: string): Promise<{ db: Db; cleanup: () => Pr
 		return 'no-sqlite';
 	}
 	if (!(await stat(file).catch(() => null))) return null;
-	const dir = await mkdtemp(join(tmpdir(), 'agentburn-cursor-'));
+	const dir = await mkdtemp(join(tmpdir(), 'burnboard-cursor-'));
 	const cleanup = () => rm(dir, { recursive: true, force: true });
 	try {
 		const copy = join(dir, 'state.vscdb');

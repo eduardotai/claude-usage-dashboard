@@ -83,7 +83,7 @@ describe('Cursor rows from the export', () => {
 	});
 
 	it('yield to the Cursor CSV inside its time span', async () => {
-		const csvEnv = fixturesEnv({ AGENTBURN_IMPORTS_DIR: join(CURSOR_FIXTURES, 'imports') });
+		const csvEnv = fixturesEnv({ BURNBOARD_IMPORTS_DIR: join(CURSOR_FIXTURES, 'imports') });
 		// CSV covers Nov 4–5: both export rows (Nov 2, Nov 6) are outside and kept.
 		let res = await createCursorAdapter(csvEnv, { grokCsv: [GROK_UNIFIED_FIXTURES] }).load();
 		expect(res.records.filter((r) => r.session === 'grok-export:cursor')).toHaveLength(2);
