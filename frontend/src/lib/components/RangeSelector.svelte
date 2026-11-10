@@ -9,7 +9,7 @@
 </script>
 
 <div class="seg" role="tablist" aria-label="Time range">
-	{#each RANGES as r}
+	{#each RANGES as r (r.key)}
 		<button
 			role="tab"
 			aria-selected={value === r.key}

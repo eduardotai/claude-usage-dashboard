@@ -86,7 +86,7 @@
 	</div>
 
 	<ul class="legend">
-		{#each models as m, i}
+		{#each models as m, i (m.model)}
 			<li>
 				<span class="dot" style="background: {colorAt(i)}"></span>
 				<span class="name">{modelLabel(m.model)}</span>
