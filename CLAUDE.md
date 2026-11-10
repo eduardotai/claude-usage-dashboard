@@ -31,7 +31,7 @@ starts a localhost server that serves both the JSON API and the built UI.
 
 ## Workflow
 
-- `npm run dev` (API on 4317 with reload + Vite on 5173), `npm test`, `npm run check`, `npm run build`
+- `npm run dev` (API on 4317 with reload + Vite on 5173), `npm test`, `npm run check`, `npm run lint`, `npm run build`
 - New adapter: research the real on-disk format first and cite sources in the adapter's
   header comment. Never invent a format: if there's no verified local source, register the
   agent as `planned` with a `note` saying what's missing (see Gemini CLI in `adapters/index.ts`).
