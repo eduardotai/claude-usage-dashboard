@@ -111,8 +111,6 @@ export function createAppServer({ store, uiDir, allowedHosts = [] }: ServerOptio
 			case 'GET /api/stats/projects':
 				// Spans all projects (so the UI can switch) but honors dates + agent.
 				return send(res, 200, stats.projects(stats.applyFilters(await store.all(), { ...filters, project: null })));
-			case 'GET /api/stats/agents':
-				return send(res, 200, stats.agents(stats.applyFilters(await store.all(), { ...filters, agent: null })));
 			case 'GET /api/stats/heatmap': {
 				const days = intParam(q, 'days', 365, 30, 730)!;
 				const records = stats.applyFilters(await store.all(), { project: filters.project, agent: filters.agent });

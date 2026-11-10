@@ -56,7 +56,7 @@ describe('HTTP API', () => {
 	});
 
 	it('all stats endpoints respond', async () => {
-		for (const p of ['/api/stats/daily', '/api/stats/models', '/api/stats/projects', '/api/stats/heatmap', '/api/stats/agents', '/api/agents']) {
+		for (const p of ['/api/stats/daily', '/api/stats/models', '/api/stats/projects', '/api/stats/heatmap', '/api/agents']) {
 			expect((await get(p)).status, p).toBe(200);
 		}
 	});

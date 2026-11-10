@@ -48,5 +48,6 @@ starts a localhost server that serves both the JSON API and the built UI.
   into the API-equivalent estimate.
 - Optional Node features (`node:sqlite`, zstd) must degrade with a warning on Node 20, and
   their tests use `it.runIf`.
-- Keep API responses flat and snake_case; mirror changes in `frontend/src/lib/types.ts`.
+- Keep API responses flat and snake_case; mirror changes in `frontend/src/lib/types.ts`
+  (`test/contract.test.ts` fails on any route or field drift between the two).
 - `docs/legacy/` holds the original PRD/specs from the Python version, for history only.

@@ -293,10 +293,10 @@ accepts `start`, `end` (`yyyy-mm-dd`), `project` and `agent` (e.g. `claude-code`
 | --- | --- |
 | `/api/health` | status + version |
 | `/api/meta` | version, pricing source, agents with source, notes, warnings, data paths and scan stats |
-| `/api/agents` | agents (incl. planned) with usage in the current filter |
+| `/api/agents` | agents (incl. planned) with per-agent tokens, calls, cost and share in the current filter (honors dates + project) |
 | `/api/stats/summary` | totals, breakdown, `estimated_cost`, `billed_cost` (null without a bill), `cost_coverage`, `total_calls`, `unmeasured_calls`, `token_coverage`, `unpriced_models`, `provenance` |
 | `/api/stats/daily` | per-day tokens, cost and calls with a `by_agent` split (`days=N` for a trailing window) |
-| `/api/stats/models` · `/projects` · `/agents` | grouped tokens, calls, cost (`null` when unpriced) |
+| `/api/stats/models` · `/projects` | grouped tokens, calls, cost (`null` when unpriced) |
 | `/api/stats/heatmap` | trailing-year daily cells (`days=30..730`) |
 | `POST /api/refresh` | re-scan logs from disk |
 
